@@ -42,7 +42,11 @@ export default function Player() {
         .order('order', { ascending: true })
 
       if (items) {
-        setPlaylistItems(items)
+        const validItems = items.filter((item) => {
+          const f = Array.isArray(item.file) ? item.file[0] : item.file
+          return !!f
+        })
+        setPlaylistItems(validItems)
       }
     }
 
@@ -125,6 +129,18 @@ export default function Player() {
     }
   }
 
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`)
+      })
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+      }
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-black text-white text-xl">
@@ -143,31 +159,42 @@ export default function Player() {
 
   if (currentTV.status === 'offline') {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50">
+      <div
+        className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
+        onClick={toggleFullScreen}
+      >
         <MonitorOff className="h-16 w-16 mb-4 opacity-50" />
         <h1 className="text-2xl font-bold">{currentTV.name}</h1>
         <p className="mt-2 text-lg">Esta tela está temporariamente desligada.</p>
+        <p className="mt-8 text-sm opacity-30">Toque para alternar tela cheia</p>
       </div>
     )
   }
 
   if (playlistItems.length === 0 || !currentFile) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50">
+      <div
+        className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
+        onClick={toggleFullScreen}
+      >
         <AlertCircle className="h-16 w-16 mb-4 opacity-50" />
         <h1 className="text-2xl font-bold">{currentTV.name}</h1>
         <p className="mt-2 text-lg">Aguardando conteúdo na playlist...</p>
+        <p className="mt-8 text-sm opacity-30">Toque para alternar tela cheia</p>
       </div>
     )
   }
 
   return (
-    <div className="relative h-screen w-screen bg-black overflow-hidden select-none cursor-none pointer-events-none">
+    <div
+      className="relative h-screen w-screen bg-black overflow-hidden select-none cursor-none"
+      onClick={toggleFullScreen}
+    >
       {currentFile.type === 'video' ? (
         <video
           key={currentItem.id}
           src={currentFile.url}
-          className="absolute inset-0 h-full w-full object-cover animate-fade-in duration-1000 ease-in-out"
+          className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
           autoPlay
           muted
           playsInline
@@ -180,7 +207,7 @@ export default function Player() {
           key={currentItem.id}
           src={currentFile.url}
           alt=""
-          className="absolute inset-0 h-full w-full object-cover animate-fade-in duration-1000 ease-in-out"
+          className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
         />
       )}
     </div>

@@ -395,6 +395,8 @@ export const Constants = {
 //   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+//   Policy "public_select_files" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
 // Table: notifications
 //   Policy "Users can insert notifications" (INSERT, PERMISSIVE) roles={authenticated}
 //     WITH CHECK: true
@@ -407,10 +409,14 @@ export const Constants = {
 //   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+//   Policy "public_select_playlist_items" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
 // Table: playlists
 //   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+//   Policy "public_select_playlists" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
 // Table: profiles
 //   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
