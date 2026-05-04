@@ -1,8 +1,6 @@
 import useMainStore from '@/stores/main'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MonitorPlay, HardDrive, ListVideo, Images } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Link } from 'react-router-dom'
 import {
   Table,
   TableBody,
@@ -28,14 +26,6 @@ export default function Index() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold tracking-tight">Visão Geral</h1>
-        <div className="flex gap-2">
-          <Button asChild variant="outline">
-            <Link to="/tvs">Adicionar TV</Link>
-          </Button>
-          <Button asChild>
-            <Link to="/biblioteca">Upload de Arquivo</Link>
-          </Button>
-        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
