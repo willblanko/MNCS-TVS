@@ -25,7 +25,9 @@ export function SidebarNav() {
   return (
     <Sidebar>
       <SidebarHeader className="h-16 flex items-center px-4 border-b">
-        <span className="font-bold text-lg text-primary tracking-tight">Gestão Mídia</span>
+        <span className="font-bold text-base text-primary tracking-tight">
+          MNCS Valqueire - TV Show
+        </span>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
