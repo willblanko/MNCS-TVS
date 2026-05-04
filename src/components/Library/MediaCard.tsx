@@ -1,14 +1,77 @@
+import { useState } from 'react'
 import { MediaFile } from '@/stores/main'
 import { Card, CardContent } from '@/components/ui/card'
-import { Video, Image as ImageIcon, Trash2, Edit2, Sparkles } from 'lucide-react'
+import { Video, Image as ImageIcon, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import useMainStore from '@/stores/main'
+import { supabase } from '@/lib/supabase/client'
+import { useToast } from '@/hooks/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
-export function MediaCard({ file }: { file: MediaFile }) {
-  const { removeFile } = useMainStore()
+export function MediaCard({
+  file,
+  onDeleteSuccess,
+}: {
+  file: MediaFile | any
+  onDeleteSuccess?: () => void
+}) {
+  const { toast } = useToast()
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const formatSize = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+
+  const handleDelete = async () => {
+    setIsDeleting(true)
+    try {
+      // Remove from Storage
+      const match = file.url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+      if (match) {
+        const bucketName = match[1]
+        const filePath = match[2]
+        await supabase.storage.from(bucketName).remove([filePath])
+      }
+
+      if (file.thumbnail) {
+        const thumbMatch = file.thumbnail.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+        if (thumbMatch) {
+          const thumbBucket = thumbMatch[1]
+          const thumbPath = thumbMatch[2]
+          await supabase.storage.from(thumbBucket).remove([thumbPath])
+        }
+      }
+
+      // Remove from Database
+      const { error } = await supabase.from('files').delete().eq('id', file.id)
+
+      if (error) throw error
+
+      toast({
+        title: 'Arquivo removido',
+        description: 'O arquivo foi removido com sucesso da biblioteca.',
+      })
+
+      onDeleteSuccess?.()
+    } catch (error) {
+      console.error(error)
+      toast({
+        title: 'Erro ao remover',
+        description: 'Não foi possível remover o arquivo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   return (
     <Card className="overflow-hidden group flex flex-col">
@@ -37,11 +100,13 @@ export function MediaCard({ file }: { file: MediaFile }) {
             {file.type === 'video' ? 'Vídeo' : 'Imagem'}
           </Badge>
         </div>
-        {file.status === 'optimizing' && (
-          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center">
+        {(file.status === 'optimizing' || isDeleting) && (
+          <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center z-10">
             <div className="flex flex-col items-center gap-2 animate-pulse">
               <span className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              <span className="text-sm font-medium">Otimizando...</span>
+              <span className="text-sm font-medium">
+                {isDeleting ? 'Removendo...' : 'Otimizando...'}
+              </span>
             </div>
           </div>
         )}
@@ -52,21 +117,36 @@ export function MediaCard({ file }: { file: MediaFile }) {
             {file.name}
           </h3>
           <div className="flex gap-1 shrink-0 -mt-1 -mr-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-              onClick={() => removeFile(file.id)}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir arquivo</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir "{file.name}"? Esta ação removerá o arquivo
+                    permanentemente da biblioteca e do armazenamento.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Remover
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
