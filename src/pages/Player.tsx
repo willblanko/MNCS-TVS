@@ -1,25 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import useMainStore from '@/stores/main'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, MonitorOff } from 'lucide-react'
 
 export default function Player() {
   const { tvId } = useParams()
-  const { tvs, playlists, files, updateTV } = useMainStore()
+  const { tvs, playlists, files } = useMainStore()
 
   const [currentIndex, setCurrentIndex] = useState(0)
   const [playlistId, setPlaylistId] = useState<string | null>(null)
 
   const currentTV = tvs.find((t) => t.id === tvId)
-
-  useEffect(() => {
-    if (currentTV && currentTV.status !== 'online') {
-      updateTV(currentTV.id, { status: 'online' })
-    }
-    return () => {
-      if (currentTV) updateTV(currentTV.id, { status: 'offline' })
-    }
-  }, [currentTV, updateTV])
 
   useEffect(() => {
     if (currentTV && currentTV.playlistId !== playlistId) {
@@ -61,6 +52,16 @@ export default function Player() {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-black text-white text-xl">
         TV não encontrada.
+      </div>
+    )
+  }
+
+  if (currentTV.status === 'offline') {
+    return (
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50">
+        <MonitorOff className="h-16 w-16 mb-4 opacity-50" />
+        <h1 className="text-2xl font-bold">{currentTV.name}</h1>
+        <p className="mt-2 text-lg">Esta tela está temporariamente desligada.</p>
       </div>
     )
   }

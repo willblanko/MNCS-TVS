@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
+import { Switch } from '@/components/ui/switch'
 import { ExternalLink, Copy, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
 import useMainStore from '@/stores/main'
@@ -31,13 +32,22 @@ export function TVRow({ tv, playlists }: { tv: TV; playlists: Playlist[] }) {
         <div className="text-xs text-muted-foreground">{tv.location}</div>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-2.5 w-2.5 rounded-full ${tv.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`}
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={tv.status === 'online'}
+            onCheckedChange={(checked) =>
+              updateTV(tv.id, { status: checked ? 'online' : 'offline' })
+            }
+            aria-label="Alternar status da TV"
           />
-          <span className="capitalize text-sm font-medium">
-            {tv.status === 'online' ? 'Online' : 'Offline'}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full transition-colors ${tv.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`}
+            />
+            <span className="capitalize text-sm font-medium">
+              {tv.status === 'online' ? 'Online' : 'Offline'}
+            </span>
+          </div>
         </div>
       </TableCell>
       <TableCell>
