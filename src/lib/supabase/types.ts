@@ -45,6 +45,33 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          read: boolean | null
+          title: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          read?: boolean | null
+          title: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          title?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       playlist_items: {
         Row: {
           created_at: string | null
@@ -313,6 +340,13 @@ export const Constants = {
 //   thumbnail: text (nullable)
 //   status: text (nullable, default: 'ready'::text)
 //   created_at: timestamp with time zone (nullable, default: now())
+// Table: notifications
+//   id: uuid (not null, default: gen_random_uuid())
+//   user_id: uuid (nullable)
+//   title: text (not null)
+//   message: text (not null)
+//   read: boolean (nullable, default: false)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: playlist_items
 //   id: uuid (not null, default: gen_random_uuid())
 //   playlist_id: uuid (nullable)
@@ -341,6 +375,9 @@ export const Constants = {
 // --- CONSTRAINTS ---
 // Table: files
 //   PRIMARY KEY files_pkey: PRIMARY KEY (id)
+// Table: notifications
+//   PRIMARY KEY notifications_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY notifications_user_id_fkey: FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
 // Table: playlist_items
 //   FOREIGN KEY playlist_items_file_id_fkey: FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
 //   PRIMARY KEY playlist_items_pkey: PRIMARY KEY (id)
@@ -358,6 +395,14 @@ export const Constants = {
 //   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+// Table: notifications
+//   Policy "Users can insert notifications" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "Users can update their own notifications" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: ((user_id = auth.uid()) OR (user_id IS NULL))
+//     WITH CHECK: ((user_id = auth.uid()) OR (user_id IS NULL))
+//   Policy "Users can view their own notifications" (SELECT, PERMISSIVE) roles={authenticated}
+//     USING: ((user_id = auth.uid()) OR (user_id IS NULL))
 // Table: playlist_items
 //   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
 //     USING: true

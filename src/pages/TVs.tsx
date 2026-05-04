@@ -12,6 +12,16 @@ import {
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
   getTVs,
   addTV as addSupabaseTV,
   removeTV as removeSupabaseTV,
@@ -24,6 +34,10 @@ export default function TVs() {
   const { playlists } = useMainStore()
   const [tvs, setTvs] = useState<SupabaseTV[]>([])
   const [loading, setLoading] = useState(true)
+
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newTvName, setNewTvName] = useState('')
+  const [newTvLocation, setNewTvLocation] = useState('')
 
   useEffect(() => {
     fetchTVs()
@@ -48,17 +62,39 @@ export default function TVs() {
     setLoading(false)
   }
 
-  const handleAddTV = async () => {
+  const handleAddTV = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!newTvName) return
+
+    let baseId = newTvName
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '')
+
+    if (!baseId) {
+      baseId = Math.random().toString(36).substring(7)
+    }
+
+    const existing = tvs.find((t) => t.id === baseId)
+    const finalId = existing ? `${baseId}-${Math.random().toString(36).substring(7)}` : baseId
+
     const newTV: SupabaseTV = {
-      id: Math.random().toString(36).substring(7),
-      name: `Nova TV ${tvs.length + 1}`,
-      location: 'Sem local',
+      id: finalId,
+      name: newTvName,
+      location: newTvLocation || 'Não especificado',
       status: 'offline',
       playlist_id: null,
     }
 
     setTvs((prev) => [...prev, newTV])
     await addSupabaseTV(newTV)
+
+    setIsAddDialogOpen(false)
+    setNewTvName('')
+    setNewTvLocation('')
   }
 
   const handleUpdateTV = async (id: string, updates: Partial<SupabaseTV>) => {
@@ -78,10 +114,50 @@ export default function TVs() {
           <h1 className="text-3xl font-bold tracking-tight">TVs</h1>
           <p className="text-muted-foreground">Gerencie seus dispositivos e atribua playlists.</p>
         </div>
-        <Button onClick={handleAddTV}>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Adicionar TV
         </Button>
       </div>
+
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <form onSubmit={handleAddTV}>
+            <DialogHeader>
+              <DialogTitle>Adicionar Nova TV</DialogTitle>
+              <DialogDescription>
+                Informe o nome da TV. A URL do player será gerada com base neste nome.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nome da TV *</Label>
+                <Input
+                  id="name"
+                  value={newTvName}
+                  onChange={(e) => setNewTvName(e.target.value)}
+                  placeholder="Ex: Recepção, Refeitório..."
+                  required
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="location">Localização (Opcional)</Label>
+                <Input
+                  id="location"
+                  value={newTvLocation}
+                  onChange={(e) => setNewTvLocation(e.target.value)}
+                  placeholder="Ex: Térreo, Prédio B..."
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit">Salvar TV</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="rounded-md border bg-card shadow-sm overflow-hidden">
         <Table>
