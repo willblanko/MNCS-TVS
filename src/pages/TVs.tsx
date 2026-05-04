@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import useMainStore from '@/stores/main'
 import { TVRow } from '@/components/TVs/TVRow'
 import {
   Table,
@@ -31,7 +30,7 @@ import {
 import { supabase } from '@/lib/supabase/client'
 
 export default function TVs() {
-  const { playlists } = useMainStore()
+  const [playlists, setPlaylists] = useState<{ id: string; name: string }[]>([])
   const [tvs, setTvs] = useState<SupabaseTV[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -41,16 +40,25 @@ export default function TVs() {
 
   useEffect(() => {
     fetchTVs()
+    fetchPlaylists()
 
-    const sub = supabase
+    const subTvs = supabase
       .channel('tvs-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tvs' }, () => {
         fetchTVs()
       })
       .subscribe()
 
+    const subPlaylists = supabase
+      .channel('playlists-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'playlists' }, () => {
+        fetchPlaylists()
+      })
+      .subscribe()
+
     return () => {
-      sub.unsubscribe()
+      subTvs.unsubscribe()
+      subPlaylists.unsubscribe()
     }
   }, [])
 
@@ -60,6 +68,16 @@ export default function TVs() {
       setTvs(data)
     }
     setLoading(false)
+  }
+
+  const fetchPlaylists = async () => {
+    const { data } = await supabase
+      .from('playlists')
+      .select('id, name')
+      .order('name', { ascending: true })
+    if (data) {
+      setPlaylists(data)
+    }
   }
 
   const handleAddTV = async (e: React.FormEvent) => {

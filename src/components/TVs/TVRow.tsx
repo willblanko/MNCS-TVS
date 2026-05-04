@@ -1,4 +1,3 @@
-import { Playlist } from '@/stores/main'
 import {
   Select,
   SelectContent,
@@ -15,7 +14,7 @@ import { SupabaseTV } from '@/services/tvs'
 
 interface TVRowProps {
   tv: SupabaseTV
-  playlists: Playlist[]
+  playlists: { id: string; name: string }[]
   onUpdate: (id: string, updates: Partial<SupabaseTV>) => void
   onRemove: (id: string) => void
 }
