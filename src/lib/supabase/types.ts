@@ -9,6 +9,126 @@ export type Database = {
   }
   public: {
     Tables: {
+      files: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          optimized_size: number
+          original_size: number
+          status: string | null
+          thumbnail: string | null
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          optimized_size: number
+          original_size: number
+          status?: string | null
+          thumbnail?: string | null
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          optimized_size?: number
+          original_size?: number
+          status?: string | null
+          thumbnail?: string | null
+          type?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      playlist_items: {
+        Row: {
+          created_at: string | null
+          duration: number | null
+          file_id: string | null
+          id: string
+          order: number
+          playlist_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          duration?: number | null
+          file_id?: string | null
+          id?: string
+          order: number
+          playlist_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          duration?: number | null
+          file_id?: string | null
+          id?: string
+          order?: number
+          playlist_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'playlist_items_file_id_fkey'
+            columns: ['file_id']
+            isOneToOne: false
+            referencedRelation: 'files'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'playlist_items_playlist_id_fkey'
+            columns: ['playlist_id']
+            isOneToOne: false
+            referencedRelation: 'playlists'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      playlists: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          name: string | null
+          role: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id: string
+          name?: string | null
+          role?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          name?: string | null
+          role?: string | null
+        }
+        Relationships: []
+      }
       tvs: {
         Row: {
           created_at: string
@@ -183,6 +303,33 @@ export const Constants = {
 // --- COLUMN TYPES (actual PostgreSQL types) ---
 // Use this to know the real database type when writing migrations.
 // "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: files
+//   id: uuid (not null, default: gen_random_uuid())
+//   name: text (not null)
+//   url: text (not null)
+//   type: text (not null)
+//   original_size: bigint (not null)
+//   optimized_size: bigint (not null)
+//   thumbnail: text (nullable)
+//   status: text (nullable, default: 'ready'::text)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: playlist_items
+//   id: uuid (not null, default: gen_random_uuid())
+//   playlist_id: uuid (nullable)
+//   file_id: uuid (nullable)
+//   order: integer (not null)
+//   duration: integer (nullable, default: 10)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: playlists
+//   id: uuid (not null, default: gen_random_uuid())
+//   name: text (not null)
+//   created_at: timestamp with time zone (nullable, default: now())
+// Table: profiles
+//   id: uuid (not null)
+//   email: text (not null)
+//   name: text (nullable)
+//   role: text (nullable, default: 'user'::text)
+//   created_at: timestamp with time zone (nullable, default: now())
 // Table: tvs
 //   id: text (not null)
 //   name: text (not null)
@@ -192,10 +339,37 @@ export const Constants = {
 //   created_at: timestamp with time zone (not null, default: now())
 
 // --- CONSTRAINTS ---
+// Table: files
+//   PRIMARY KEY files_pkey: PRIMARY KEY (id)
+// Table: playlist_items
+//   FOREIGN KEY playlist_items_file_id_fkey: FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
+//   PRIMARY KEY playlist_items_pkey: PRIMARY KEY (id)
+//   FOREIGN KEY playlist_items_playlist_id_fkey: FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE
+// Table: playlists
+//   PRIMARY KEY playlists_pkey: PRIMARY KEY (id)
+// Table: profiles
+//   FOREIGN KEY profiles_id_fkey: FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+//   PRIMARY KEY profiles_pkey: PRIMARY KEY (id)
 // Table: tvs
 //   PRIMARY KEY tvs_pkey: PRIMARY KEY (id)
 
 // --- ROW LEVEL SECURITY POLICIES ---
+// Table: files
+//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: playlist_items
+//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: playlists
+//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
+// Table: profiles
+//   Policy "authenticated_all" (ALL, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true
 // Table: tvs
 //   Policy "tvs_delete_policy" (DELETE, PERMISSIVE) roles={authenticated}
 //     USING: true
@@ -206,3 +380,19 @@ export const Constants = {
 //   Policy "tvs_update_policy" (UPDATE, PERMISSIVE) roles={authenticated}
 //     USING: true
 //     WITH CHECK: true
+
+// --- DATABASE FUNCTIONS ---
+// FUNCTION handle_new_user()
+//   CREATE OR REPLACE FUNCTION public.handle_new_user()
+//    RETURNS trigger
+//    LANGUAGE plpgsql
+//    SECURITY DEFINER
+//   AS $function$
+//   BEGIN
+//     INSERT INTO public.profiles (id, email)
+//     VALUES (NEW.id, NEW.email)
+//     ON CONFLICT (id) DO NOTHING;
+//     RETURN NEW;
+//   END;
+//   $function$
+//
