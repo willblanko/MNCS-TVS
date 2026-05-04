@@ -19,7 +19,7 @@ export default function Player() {
       if (tv) {
         setCurrentTV(tv)
         if (tv.playlist_id) {
-          fetchPlaylistItems(tv.playlist_id)
+          await fetchPlaylistItems(tv.playlist_id)
         }
       }
       setLoading(false)
@@ -93,7 +93,7 @@ export default function Player() {
   }, [playlistItems.length, currentIndex])
 
   const currentItem = playlistItems[currentIndex]
-  const currentFile = currentItem?.file
+  const currentFile = Array.isArray(currentItem?.file) ? currentItem.file[0] : currentItem?.file
 
   useEffect(() => {
     if (!currentFile || !currentItem || playlistItems.length <= 1) return
@@ -116,6 +116,12 @@ export default function Player() {
   const handleVideoEnded = () => {
     if (playlistItems.length > 1) {
       setCurrentIndex((currentIndex + 1) % playlistItems.length)
+    } else {
+      const video = document.querySelector('video')
+      if (video) {
+        video.currentTime = 0
+        video.play().catch(() => {})
+      }
     }
   }
 
@@ -165,6 +171,7 @@ export default function Player() {
           autoPlay
           muted
           playsInline
+          loop={playlistItems.length === 1}
           onEnded={handleVideoEnded}
           onError={handleVideoEnded}
         />

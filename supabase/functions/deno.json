@@ -1,3 +1,5 @@
 {
-  "_versions": {}
+  "_versions": {
+    "manage-users": 1
+  }
 }

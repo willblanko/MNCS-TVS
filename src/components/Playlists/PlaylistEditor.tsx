@@ -67,10 +67,24 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       let currentPlaylistId = playlist?.id
 
       if (playlist) {
-        await supabase.from('playlists').update({ name }).eq('id', playlist.id)
-        await supabase.from('playlist_items').delete().eq('playlist_id', playlist.id)
+        const { error: updateError } = await supabase
+          .from('playlists')
+          .update({ name })
+          .eq('id', playlist.id)
+        if (updateError) throw updateError
+
+        const { error: deleteError } = await supabase
+          .from('playlist_items')
+          .delete()
+          .eq('playlist_id', playlist.id)
+        if (deleteError) throw deleteError
       } else {
-        const { data } = await supabase.from('playlists').insert({ name }).select().single()
+        const { data, error: insertError } = await supabase
+          .from('playlists')
+          .insert({ name })
+          .select()
+          .single()
+        if (insertError) throw insertError
         if (data) currentPlaylistId = data.id
       }
 
@@ -81,7 +95,8 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
           order: index,
           duration: item.duration,
         }))
-        await supabase.from('playlist_items').insert(insertItems)
+        const { error: itemsError } = await supabase.from('playlist_items').insert(insertItems)
+        if (itemsError) throw itemsError
       }
 
       onSaveSuccess()
@@ -95,13 +110,13 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
   }
 
   const addFileToPlaylist = (file: any) => {
-    setItems([
-      ...items,
+    setItems((prev) => [
+      ...prev,
       {
-        id: Math.random().toString(),
+        id: crypto.randomUUID(),
         fileId: file.id,
         duration: file.type === 'video' ? 0 : 15,
-        order: items.length,
+        order: prev.length,
       },
     ])
   }
@@ -203,10 +218,15 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                             </div>
                           )}
                           <Button
+                            type="button"
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-destructive shrink-0"
-                            onClick={() => setItems(items.filter((i) => i.id !== item.id))}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setItems(items.filter((i) => i.id !== item.id))
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
