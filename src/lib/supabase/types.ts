@@ -9,7 +9,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      tvs: {
+        Row: {
+          created_at: string
+          id: string
+          location: string
+          name: string
+          playlist_id: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          location: string
+          name: string
+          playlist_id?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string
+          name?: string
+          playlist_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -153,3 +179,30 @@ export const Constants = {
 // IMPORTANT: The TypeScript types above map UUID, TEXT, VARCHAR all to "string".
 // Use the COLUMN TYPES section below to know the real PostgreSQL type for each column.
 // Always use the correct PostgreSQL type when writing SQL migrations.
+
+// --- COLUMN TYPES (actual PostgreSQL types) ---
+// Use this to know the real database type when writing migrations.
+// "string" in TypeScript types above may be uuid, text, varchar, timestamptz, etc.
+// Table: tvs
+//   id: text (not null)
+//   name: text (not null)
+//   location: text (not null)
+//   status: text (not null, default: 'offline'::text)
+//   playlist_id: text (nullable)
+//   created_at: timestamp with time zone (not null, default: now())
+
+// --- CONSTRAINTS ---
+// Table: tvs
+//   PRIMARY KEY tvs_pkey: PRIMARY KEY (id)
+
+// --- ROW LEVEL SECURITY POLICIES ---
+// Table: tvs
+//   Policy "tvs_delete_policy" (DELETE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//   Policy "tvs_insert_policy" (INSERT, PERMISSIVE) roles={authenticated}
+//     WITH CHECK: true
+//   Policy "tvs_select_policy" (SELECT, PERMISSIVE) roles={public}
+//     USING: true
+//   Policy "tvs_update_policy" (UPDATE, PERMISSIVE) roles={authenticated}
+//     USING: true
+//     WITH CHECK: true

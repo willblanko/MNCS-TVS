@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import useMainStore from '@/stores/main'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import { UploadZone } from '@/components/Library/UploadZone'
 import { MediaCard } from '@/components/Library/MediaCard'
 import { Input } from '@/components/ui/input'
@@ -13,9 +13,29 @@ import {
 import { Search } from 'lucide-react'
 
 export default function Library() {
-  const { files } = useMainStore()
+  const [files, setFiles] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('all')
+
+  const fetchFiles = async () => {
+    const { data } = await supabase
+      .from('files')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (data) {
+      const mapped = data.map((f) => ({
+        ...f,
+        originalSize: f.original_size,
+        optimizedSize: f.optimized_size,
+        createdAt: new Date(f.created_at).getTime(),
+      }))
+      setFiles(mapped)
+    }
+  }
+
+  useEffect(() => {
+    fetchFiles()
+  }, [])
 
   const filteredFiles = files.filter((f) => {
     if (filterType !== 'all' && f.type !== filterType) return false
@@ -30,7 +50,7 @@ export default function Library() {
         <p className="text-muted-foreground">Gerencie suas mídias, vídeos e imagens.</p>
       </div>
 
-      <UploadZone />
+      <UploadZone onUploadSuccess={fetchFiles} />
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between pt-4">
         <div className="relative w-full sm:max-w-sm">

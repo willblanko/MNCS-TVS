@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Image as ImageIcon, ListVideo, MonitorPlay } from 'lucide-react'
+import { LayoutDashboard, Image as ImageIcon, ListVideo, MonitorPlay, Users } from 'lucide-react'
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +19,7 @@ export function SidebarNav() {
     { title: 'Biblioteca', path: '/biblioteca', icon: ImageIcon },
     { title: 'Playlists', path: '/playlists', icon: ListVideo },
     { title: 'TVs', path: '/tvs', icon: MonitorPlay },
+    { title: 'Usuários', path: '/usuarios', icon: Users },
   ]
 
   return (

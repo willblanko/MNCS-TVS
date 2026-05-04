@@ -1,4 +1,5 @@
-import useMainStore from '@/stores/main'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { MonitorPlay, HardDrive, ListVideo, Images } from 'lucide-react'
 import {
@@ -12,15 +13,33 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 export default function Index() {
-  const { tvs, files, playlists } = useMainStore()
+  const [tvs, setTvs] = useState<any[]>([])
+  const [files, setFiles] = useState<any[]>([])
+  const [playlists, setPlaylists] = useState<any[]>([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const [{ data: tvData }, { data: fileData }, { data: playlistData }] = await Promise.all([
+        supabase.from('tvs').select('*'),
+        supabase.from('files').select('*').order('created_at', { ascending: false }),
+        supabase.from('playlists').select('*'),
+      ])
+
+      if (tvData) setTvs(tvData)
+      if (fileData) setFiles(fileData)
+      if (playlistData) setPlaylists(playlistData)
+    }
+
+    fetchData()
+  }, [])
 
   const onlineTvs = tvs.filter((tv) => tv.status === 'online').length
-  const usedStorage = files.reduce((acc, f) => acc + f.optimizedSize, 0)
-  const totalStorage = 5 * 1024 * 1024 * 1024 // Fake 5GB capacity
+  const usedStorage = files.reduce((acc, f) => acc + (f.optimized_size || f.original_size || 0), 0)
+  const totalStorage = 5 * 1024 * 1024 * 1024 // 5GB limit
 
   const formatSize = (bytes: number) => (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 
-  const recentFiles = [...files].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5)
+  const recentFiles = files.slice(0, 5)
 
   return (
     <div className="space-y-6">
@@ -89,8 +108,8 @@ export default function Index() {
               {recentFiles.map((file) => (
                 <TableRow key={file.id}>
                   <TableCell className="font-medium">{file.name}</TableCell>
-                  <TableCell>{formatSize(file.originalSize)}</TableCell>
-                  <TableCell>{formatSize(file.optimizedSize)}</TableCell>
+                  <TableCell>{formatSize(file.original_size)}</TableCell>
+                  <TableCell>{formatSize(file.optimized_size)}</TableCell>
                   <TableCell>
                     {file.status === 'ready' ? (
                       <Badge
@@ -107,6 +126,13 @@ export default function Index() {
                   </TableCell>
                 </TableRow>
               ))}
+              {recentFiles.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                    Nenhum arquivo enviado ainda.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
