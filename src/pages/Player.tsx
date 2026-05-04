@@ -143,7 +143,10 @@ export default function Player() {
 
   if (loading) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-black text-white text-xl">
+      <div
+        className="fixed inset-0 flex h-screen w-screen items-center justify-center bg-black text-white text-xl"
+        style={{ zIndex: 2147483647 }}
+      >
         Carregando...
       </div>
     )
@@ -151,7 +154,10 @@ export default function Player() {
 
   if (!currentTV) {
     return (
-      <div className="flex h-screen w-screen items-center justify-center bg-black text-white text-xl">
+      <div
+        className="fixed inset-0 flex h-screen w-screen items-center justify-center bg-black text-white text-xl"
+        style={{ zIndex: 2147483647 }}
+      >
         TV não encontrada.
       </div>
     )
@@ -160,7 +166,8 @@ export default function Player() {
   if (currentTV.status === 'offline') {
     return (
       <div
-        className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
+        className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
+        style={{ zIndex: 2147483647 }}
         onClick={toggleFullScreen}
       >
         <MonitorOff className="h-16 w-16 mb-4 opacity-50" />
@@ -174,7 +181,8 @@ export default function Player() {
   if (playlistItems.length === 0 || !currentFile) {
     return (
       <div
-        className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
+        className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
+        style={{ zIndex: 2147483647 }}
         onClick={toggleFullScreen}
       >
         <AlertCircle className="h-16 w-16 mb-4 opacity-50" />
@@ -187,7 +195,8 @@ export default function Player() {
 
   return (
     <div
-      className="relative h-screen w-screen bg-black overflow-hidden select-none cursor-none"
+      className="fixed inset-0 h-screen w-screen bg-black overflow-hidden select-none cursor-none"
+      style={{ zIndex: 2147483647 }}
       onClick={toggleFullScreen}
     >
       {currentFile.type === 'video' ? (
