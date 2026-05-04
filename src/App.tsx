@@ -9,6 +9,7 @@ import Playlists from './pages/Playlists'
 import TVs from './pages/TVs'
 import Player from './pages/Player'
 import UsersPage from './pages/Users'
+import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import { Button } from './components/ui/button'
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="/playlists" element={<Playlists />} />
             <Route path="/tvs" element={<TVs />} />
             <Route path="/usuarios" element={<UsersPage />} />
+            <Route path="/perfil" element={<Profile />} />
           </Route>
           <Route path="/player/:tvId" element={<Player />} />
           <Route path="*" element={<NotFound />} />
