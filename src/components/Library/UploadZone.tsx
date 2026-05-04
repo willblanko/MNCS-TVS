@@ -34,24 +34,104 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
     setIsDragging(false)
   }, [])
 
+  const generateThumbnail = async (file: File): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      const isVideo = file.type.startsWith('video/')
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+
+      if (isVideo) {
+        const video = document.createElement('video')
+        video.autoplay = false
+        video.muted = true
+        video.playsInline = true
+        video.src = URL.createObjectURL(file)
+        video.onloadeddata = () => {
+          video.currentTime = 1 // seek to 1 second
+        }
+        video.onseeked = () => {
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7)
+          URL.revokeObjectURL(video.src)
+        }
+        video.onerror = () => resolve(null)
+      } else {
+        const img = new Image()
+        img.src = URL.createObjectURL(file)
+        img.onload = () => {
+          const maxSize = 800
+          let width = img.width
+          let height = img.height
+
+          if (width > height) {
+            if (width > maxSize) {
+              height *= maxSize / width
+              width = maxSize
+            }
+          } else {
+            if (height > maxSize) {
+              width *= maxSize / height
+              height = maxSize
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          ctx?.drawImage(img, 0, 0, width, height)
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7)
+          URL.revokeObjectURL(img.src)
+        }
+        img.onerror = () => resolve(null)
+      }
+    })
+  }
+
   const uploadFile = async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: 'Arquivo muito grande',
+        description: 'O limite é de 50MB por arquivo.',
+        variant: 'destructive',
+      })
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
     try {
       setIsUploading(true)
       const isVideo = file.type.startsWith('video/')
       const type = isVideo ? 'video' : 'image'
 
       const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
+      const baseName = Math.random().toString(36).substring(2) + '_' + Date.now()
+      const fileName = `${baseName}.${fileExt}`
+      const thumbName = `thumbnails/${baseName}.jpg`
+
+      const thumbBlob = await generateThumbnail(file)
 
       const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file)
 
       if (uploadError) throw uploadError
 
       const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName)
+      let thumbnailUrl = publicUrlData.publicUrl
+
+      if (thumbBlob) {
+        const { error: thumbError } = await supabase.storage
+          .from('media')
+          .upload(thumbName, thumbBlob)
+        if (!thumbError) {
+          const { data: thumbUrlData } = supabase.storage.from('media').getPublicUrl(thumbName)
+          thumbnailUrl = thumbUrlData.publicUrl
+        }
+      }
 
       const { error: dbError } = await supabase.from('files').insert({
         name: file.name,
         url: publicUrlData.publicUrl,
+        thumbnail: thumbnailUrl,
         type: type,
         original_size: file.size,
         optimized_size: file.size,
@@ -104,9 +184,7 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
             ? 'Enviando arquivo...'
             : 'Arraste e solte arquivos aqui ou clique para fazer upload'}
         </p>
-        <p className="text-sm text-muted-foreground">
-          Vídeos (MP4) e Imagens (JPG, PNG) até 100MB.
-        </p>
+        <p className="text-sm text-muted-foreground">Vídeos (MP4) e Imagens (JPG, PNG) até 50MB.</p>
       </div>
     </div>
   )

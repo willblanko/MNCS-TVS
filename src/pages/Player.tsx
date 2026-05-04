@@ -1,102 +1,123 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import useMainStore from '@/stores/main'
 import { AlertCircle, MonitorOff } from 'lucide-react'
-import { getTV, SupabaseTV } from '@/services/tvs'
 import { supabase } from '@/lib/supabase/client'
 
 export default function Player() {
   const { tvId } = useParams()
-  const { tvs, playlists, files } = useMainStore()
-
-  const tvsRef = useRef(tvs)
-  useEffect(() => {
-    tvsRef.current = tvs
-  }, [tvs])
 
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [playlistId, setPlaylistId] = useState<string | null>(null)
-
-  const [currentTV, setCurrentTV] = useState<SupabaseTV | null>(null)
+  const [currentTV, setCurrentTV] = useState<any | null>(null)
+  const [playlistItems, setPlaylistItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!tvId) return
 
     const fetchTV = async () => {
-      const { data } = await getTV(tvId)
-      if (data) {
-        setCurrentTV(data)
-      } else {
-        const localTV = tvsRef.current.find((t: any) => t.id === tvId)
-        if (localTV) {
-          setCurrentTV({
-            id: localTV.id,
-            name: localTV.name,
-            location: localTV.location,
-            status: localTV.status,
-            playlist_id: localTV.playlistId,
-          })
+      const { data: tv } = await supabase.from('tvs').select('*').eq('id', tvId).single()
+      if (tv) {
+        setCurrentTV(tv)
+        if (tv.playlist_id) {
+          fetchPlaylistItems(tv.playlist_id)
         }
       }
       setLoading(false)
     }
 
+    const fetchPlaylistItems = async (playlistId: string) => {
+      const { data: items } = await supabase
+        .from('playlist_items')
+        .select(`
+          id,
+          order,
+          duration,
+          file:files (
+            id,
+            url,
+            type
+          )
+        `)
+        .eq('playlist_id', playlistId)
+        .order('order', { ascending: true })
+
+      if (items) {
+        setPlaylistItems(items)
+      }
+    }
+
     fetchTV()
 
-    const sub = supabase
+    const subTV = supabase
       .channel(`tv-${tvId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tvs', filter: `id=eq.${tvId}` },
         (payload) => {
           if (payload.new) {
-            setCurrentTV(payload.new as SupabaseTV)
+            setCurrentTV(payload.new)
+            if (payload.new.playlist_id && payload.new.playlist_id !== currentTV?.playlist_id) {
+              fetchPlaylistItems(payload.new.playlist_id)
+              setCurrentIndex(0)
+            } else if (!payload.new.playlist_id) {
+              setPlaylistItems([])
+            }
+          }
+        },
+      )
+      .subscribe()
+
+    const subItems = supabase
+      .channel(`items-${tvId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'playlist_items' },
+        (payload) => {
+          if (currentTV?.playlist_id) {
+            fetchPlaylistItems(currentTV.playlist_id)
           }
         },
       )
       .subscribe()
 
     return () => {
-      sub.unsubscribe()
+      subTV.unsubscribe()
+      subItems.unsubscribe()
     }
-  }, [tvId])
+  }, [tvId, currentTV?.playlist_id])
 
   useEffect(() => {
-    if (currentTV && currentTV.playlist_id !== playlistId) {
-      setPlaylistId(currentTV.playlist_id)
+    if (playlistItems.length > 0 && currentIndex >= playlistItems.length) {
       setCurrentIndex(0)
     }
-  }, [currentTV?.playlist_id, playlistId])
+  }, [playlistItems.length, currentIndex])
 
-  const playlist = playlists.find((p) => p.id === playlistId)
-  const items = playlist?.items || []
-
-  useEffect(() => {
-    if (items.length > 0 && currentIndex >= items.length) {
-      setCurrentIndex(0)
-    }
-  }, [items.length, currentIndex])
-
-  const currentItem = items[currentIndex]
-  const currentFile = currentItem ? files.find((f) => f.id === currentItem.fileId) : null
+  const currentItem = playlistItems[currentIndex]
+  const currentFile = currentItem?.file
 
   useEffect(() => {
-    if (!currentFile || !currentItem || items.length <= 1) return
+    if (!currentFile || !currentItem || playlistItems.length <= 1) return
 
     let timeout: ReturnType<typeof setTimeout>
-    const nextIndex = (currentIndex + 1) % items.length
+    const nextIndex = (currentIndex + 1) % playlistItems.length
 
     if (currentFile.type === 'video') {
-      // Simulate video duration as 5 seconds for demonstration purposes
-      timeout = setTimeout(() => setCurrentIndex(nextIndex), 5000)
+      // Allow video element to control duration via onEnded
     } else {
-      const duration = currentItem.duration > 0 ? currentItem.duration * 1000 : 5000
+      const duration = currentItem.duration > 0 ? currentItem.duration * 1000 : 10000
       timeout = setTimeout(() => setCurrentIndex(nextIndex), duration)
     }
 
-    return () => clearTimeout(timeout)
-  }, [currentIndex, currentItem, currentFile, items.length])
+    return () => {
+      if (timeout) clearTimeout(timeout)
+    }
+  }, [currentIndex, currentItem, currentFile, playlistItems.length])
+
+  const handleVideoEnded = () => {
+    if (playlistItems.length > 1) {
+      setCurrentIndex((currentIndex + 1) % playlistItems.length)
+    }
+  }
 
   if (loading) {
     return (
@@ -124,7 +145,7 @@ export default function Player() {
     )
   }
 
-  if (!playlist || items.length === 0 || !currentFile) {
+  if (playlistItems.length === 0 || !currentFile) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50">
         <AlertCircle className="h-16 w-16 mb-4 opacity-50" />
@@ -136,12 +157,25 @@ export default function Player() {
 
   return (
     <div className="relative h-screen w-screen bg-black overflow-hidden select-none cursor-none pointer-events-none">
-      <img
-        key={currentItem.id}
-        src={currentFile.url}
-        alt=""
-        className="absolute inset-0 h-full w-full object-cover animate-fade-in duration-1000 ease-in-out"
-      />
+      {currentFile.type === 'video' ? (
+        <video
+          key={currentItem.id}
+          src={currentFile.url}
+          className="absolute inset-0 h-full w-full object-cover animate-fade-in duration-1000 ease-in-out"
+          autoPlay
+          muted
+          playsInline
+          onEnded={handleVideoEnded}
+          onError={handleVideoEnded}
+        />
+      ) : (
+        <img
+          key={currentItem.id}
+          src={currentFile.url}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover animate-fade-in duration-1000 ease-in-out"
+        />
+      )}
     </div>
   )
 }

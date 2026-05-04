@@ -14,9 +14,15 @@ export function MediaCard({ file }: { file: MediaFile }) {
     <Card className="overflow-hidden group flex flex-col">
       <div className="relative aspect-video bg-muted shrink-0">
         <img
-          src={file.thumbnail}
+          src={file.thumbnail || file.url}
           alt={file.name}
           className="w-full h-full object-cover transition-transform group-hover:scale-105"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            if (target.src !== file.url) {
+              target.src = file.url
+            }
+          }}
         />
         <div className="absolute top-2 left-2 flex gap-1">
           <Badge
@@ -64,15 +70,7 @@ export function MediaCard({ file }: { file: MediaFile }) {
           </div>
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
-          {file.status === 'ready' ? (
-            <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
-              <Sparkles className="h-3 w-3" />
-              <span>{formatSize(file.optimizedSize)}</span>
-              <span className="line-through opacity-50 ml-1">{formatSize(file.originalSize)}</span>
-            </div>
-          ) : (
-            <span>{formatSize(file.originalSize)}</span>
-          )}
+          <span>{formatSize(file.originalSize || (file as any).original_size || 0)}</span>
         </div>
       </CardContent>
     </Card>
