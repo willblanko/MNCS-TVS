@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import useMainStore, { Playlist } from '@/stores/main'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Clock, Film, MoreVertical, Plus, Trash2, Edit2 } from 'lucide-react'
@@ -11,12 +11,50 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PlaylistEditor } from '@/components/Playlists/PlaylistEditor'
 
-export default function Playlists() {
-  const { playlists, removePlaylist, files } = useMainStore()
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editingPlaylist, setEditingPlaylist] = useState<Playlist | null>(null)
+export interface PlaylistData {
+  id: string
+  name: string
+  items: {
+    id: string
+    fileId: string
+    duration: number
+    order: number
+  }[]
+}
 
-  const handleEdit = (playlist: Playlist) => {
+export default function Playlists() {
+  const [playlists, setPlaylists] = useState<PlaylistData[]>([])
+  const [files, setFiles] = useState<any[]>([])
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editingPlaylist, setEditingPlaylist] = useState<PlaylistData | null>(null)
+
+  const fetchData = async () => {
+    const { data: filesData } = await supabase.from('files').select('*')
+    if (filesData) setFiles(filesData)
+
+    const { data: playlistsData } = await supabase.from('playlists').select('*, playlist_items(*)')
+    if (playlistsData) {
+      const mappedPlaylists = playlistsData.map((p) => ({
+        id: p.id,
+        name: p.name,
+        items: (p.playlist_items || [])
+          .sort((a: any, b: any) => a.order - b.order)
+          .map((i: any) => ({
+            id: i.id,
+            fileId: i.file_id,
+            duration: i.duration || 15,
+            order: i.order,
+          })),
+      }))
+      setPlaylists(mappedPlaylists)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  const handleEdit = (playlist: PlaylistData) => {
     setEditingPlaylist(playlist)
     setEditorOpen(true)
   }
@@ -26,13 +64,19 @@ export default function Playlists() {
     setEditorOpen(true)
   }
 
-  const getPlaylistDuration = (playlist: Playlist) => {
+  const removePlaylist = async (id: string) => {
+    await supabase.from('playlists').delete().eq('id', id)
+    fetchData()
+  }
+
+  const getPlaylistDuration = (playlist: PlaylistData) => {
     let total = 0
     playlist.items.forEach((item) => {
-      if (item.duration > 0) {
-        total += item.duration
+      const file = files.find((f) => f.id === item.fileId)
+      if (file?.type === 'video') {
+        total += 30 // Aproximação de duração para vídeos
       } else {
-        total += 30 // Estimated duration for videos
+        total += item.duration
       }
     })
     const m = Math.floor(total / 60)
@@ -94,8 +138,8 @@ export default function Playlists() {
                   return file ? (
                     <img
                       key={i}
-                      src={file.thumbnail}
-                      className="inline-block h-8 w-8 rounded-full ring-2 ring-background object-cover"
+                      src={file.thumbnail || file.url}
+                      className="inline-block h-8 w-8 rounded-full ring-2 ring-background object-cover bg-muted"
                       alt=""
                     />
                   ) : null
@@ -109,9 +153,19 @@ export default function Playlists() {
             </CardContent>
           </Card>
         ))}
+        {playlists.length === 0 && (
+          <div className="col-span-full py-12 text-center text-muted-foreground border rounded-lg border-dashed">
+            Nenhuma playlist encontrada. Crie sua primeira playlist!
+          </div>
+        )}
       </div>
 
-      <PlaylistEditor playlist={editingPlaylist} open={editorOpen} onOpenChange={setEditorOpen} />
+      <PlaylistEditor
+        playlist={editingPlaylist}
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        onSaveSuccess={fetchData}
+      />
     </div>
   )
 }

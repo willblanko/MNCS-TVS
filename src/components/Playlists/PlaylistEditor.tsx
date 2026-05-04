@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -11,42 +11,87 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import useMainStore, { Playlist } from '@/stores/main'
 import { Trash2, GripVertical, Plus } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { supabase } from '@/lib/supabase/client'
+import { useToast } from '@/hooks/use-toast'
+import type { PlaylistData } from '@/pages/Playlists'
 
 interface Props {
-  playlist: Playlist | null
+  playlist: PlaylistData | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSaveSuccess: () => void
 }
 
-export function PlaylistEditor({ playlist, open, onOpenChange }: Props) {
-  const { files, addPlaylist, updatePlaylist } = useMainStore()
+export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: Props) {
   const [name, setName] = useState('')
-  const [items, setItems] = useState<Playlist['items']>([])
+  const [items, setItems] = useState<PlaylistData['items']>([])
+  const [files, setFiles] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
-  useMemo(() => {
-    if (playlist) {
-      setName(playlist.name)
-      setItems(playlist.items)
-    } else {
-      setName('Nova Playlist')
-      setItems([])
+  useEffect(() => {
+    if (open) {
+      if (playlist) {
+        setName(playlist.name)
+        setItems(playlist.items)
+      } else {
+        setName('Nova Playlist')
+        setItems([])
+      }
+      fetchFiles()
     }
   }, [playlist, open])
 
-  const handleSave = () => {
-    if (playlist) {
-      updatePlaylist(playlist.id, { name, items })
-    } else {
-      addPlaylist({
-        id: Math.random().toString(36).substring(7),
-        name,
-        items,
+  const fetchFiles = async () => {
+    const { data } = await supabase
+      .from('files')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (data) setFiles(data)
+  }
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      toast({
+        title: 'Aviso',
+        description: 'O nome da playlist é obrigatório.',
+        variant: 'destructive',
       })
+      return
     }
-    onOpenChange(false)
+
+    setLoading(true)
+    try {
+      let currentPlaylistId = playlist?.id
+
+      if (playlist) {
+        await supabase.from('playlists').update({ name }).eq('id', playlist.id)
+        await supabase.from('playlist_items').delete().eq('playlist_id', playlist.id)
+      } else {
+        const { data } = await supabase.from('playlists').insert({ name }).select().single()
+        if (data) currentPlaylistId = data.id
+      }
+
+      if (currentPlaylistId && items.length > 0) {
+        const insertItems = items.map((item, index) => ({
+          playlist_id: currentPlaylistId,
+          file_id: item.fileId,
+          order: index,
+          duration: item.duration,
+        }))
+        await supabase.from('playlist_items').insert(insertItems)
+      }
+
+      onSaveSuccess()
+      onOpenChange(false)
+      toast({ title: 'Sucesso', description: 'Playlist salva com sucesso!' })
+    } catch (err: any) {
+      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const addFileToPlaylist = (file: any) => {
@@ -56,6 +101,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange }: Props) {
         id: Math.random().toString(),
         fileId: file.id,
         duration: file.type === 'video' ? 0 : 15,
+        order: items.length,
       },
     ])
   }
@@ -83,7 +129,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange }: Props) {
               <ScrollArea className="flex-1 border rounded-md p-2 bg-muted/10">
                 {files.length === 0 ? (
                   <div className="p-4 text-center text-muted-foreground text-sm">
-                    Nenhuma mídia encontrada.
+                    Nenhuma mídia encontrada no seu storage.
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
@@ -133,7 +179,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange }: Props) {
                           <img
                             src={file.thumbnail || file.url}
                             alt=""
-                            className="h-10 w-10 object-cover rounded shrink-0"
+                            className="h-10 w-10 object-cover rounded shrink-0 bg-background"
                           />
                           <div className="flex-1 overflow-hidden">
                             <p className="text-sm font-medium truncate">{file.name}</p>
@@ -176,9 +222,13 @@ export function PlaylistEditor({ playlist, open, onOpenChange }: Props) {
 
         <SheetFooter className="mt-4 pt-4 border-t shrink-0">
           <SheetClose asChild>
-            <Button variant="outline">Cancelar</Button>
+            <Button variant="outline" disabled={loading}>
+              Cancelar
+            </Button>
           </SheetClose>
-          <Button onClick={handleSave}>Salvar Playlist</Button>
+          <Button onClick={handleSave} disabled={loading}>
+            {loading ? 'Salvando...' : 'Salvar Playlist'}
+          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
