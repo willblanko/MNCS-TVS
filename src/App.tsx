@@ -9,24 +9,100 @@ import Playlists from './pages/Playlists'
 import TVs from './pages/TVs'
 import Player from './pages/Player'
 import NotFound from './pages/NotFound'
+import { AuthProvider, useAuth } from './hooks/use-auth'
+import { Button } from './components/ui/button'
+import { Input } from './components/ui/input'
+import { useState } from 'react'
+import { LogIn } from 'lucide-react'
+
+const AuthGuard = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, signIn } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  if (loading)
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-black text-white">
+        Carregando...
+      </div>
+    )
+
+  if (!user) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900">
+        <div className="w-full max-w-sm p-8 bg-card rounded-xl shadow-lg border">
+          <div className="flex items-center justify-center mb-6">
+            <div className="bg-primary/10 p-3 rounded-full">
+              <LogIn className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-center mb-2">Acesso Restrito</h1>
+          <p className="text-center text-sm text-muted-foreground mb-6">
+            Use as credenciais de administrador para acessar o painel.
+          </p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault()
+              const { error } = await signIn(email, password)
+              if (error) alert('Falha no login. Verifique as credenciais.')
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <Input
+                type="email"
+                placeholder="E-mail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Input
+                type="password"
+                placeholder="Senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full">
+              Entrar no Painel
+            </Button>
+          </form>
+        </div>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
 
 const App = () => (
-  <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Index />} />
-          <Route path="/biblioteca" element={<Library />} />
-          <Route path="/playlists" element={<Playlists />} />
-          <Route path="/tvs" element={<TVs />} />
-        </Route>
-        <Route path="/player/:tvId" element={<Player />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </TooltipProvider>
-  </BrowserRouter>
+  <AuthProvider>
+    <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <Routes>
+          <Route
+            element={
+              <AuthGuard>
+                <Layout />
+              </AuthGuard>
+            }
+          >
+            <Route path="/" element={<Index />} />
+            <Route path="/biblioteca" element={<Library />} />
+            <Route path="/playlists" element={<Playlists />} />
+            <Route path="/tvs" element={<TVs />} />
+          </Route>
+          <Route path="/player/:tvId" element={<Player />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </TooltipProvider>
+    </BrowserRouter>
+  </AuthProvider>
 )
 
 export default App

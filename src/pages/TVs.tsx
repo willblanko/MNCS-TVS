@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import useMainStore from '@/stores/main'
 import { TVRow } from '@/components/TVs/TVRow'
 import {
@@ -10,18 +11,64 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import {
+  getTVs,
+  addTV as addSupabaseTV,
+  removeTV as removeSupabaseTV,
+  updateTV as updateSupabaseTV,
+  SupabaseTV,
+} from '@/services/tvs'
+import { supabase } from '@/lib/supabase/client'
 
 export default function TVs() {
-  const { tvs, playlists, addTV } = useMainStore()
+  const { playlists } = useMainStore()
+  const [tvs, setTvs] = useState<SupabaseTV[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handleAddTV = () => {
-    addTV({
+  useEffect(() => {
+    fetchTVs()
+
+    const sub = supabase
+      .channel('tvs-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tvs' }, () => {
+        fetchTVs()
+      })
+      .subscribe()
+
+    return () => {
+      sub.unsubscribe()
+    }
+  }, [])
+
+  const fetchTVs = async () => {
+    const { data } = await getTVs()
+    if (data) {
+      setTvs(data)
+    }
+    setLoading(false)
+  }
+
+  const handleAddTV = async () => {
+    const newTV: SupabaseTV = {
       id: Math.random().toString(36).substring(7),
       name: `Nova TV ${tvs.length + 1}`,
       location: 'Sem local',
       status: 'offline',
-      playlistId: null,
-    })
+      playlist_id: null,
+    }
+
+    setTvs((prev) => [...prev, newTV])
+    await addSupabaseTV(newTV)
+  }
+
+  const handleUpdateTV = async (id: string, updates: Partial<SupabaseTV>) => {
+    setTvs((prev) => prev.map((tv) => (tv.id === id ? { ...tv, ...updates } : tv)))
+    await updateSupabaseTV(id, updates)
+  }
+
+  const handleRemoveTV = async (id: string) => {
+    setTvs((prev) => prev.filter((tv) => tv.id !== id))
+    await removeSupabaseTV(id)
   }
 
   return (
@@ -48,9 +95,15 @@ export default function TVs() {
           </TableHeader>
           <TableBody>
             {tvs.map((tv) => (
-              <TVRow key={tv.id} tv={tv} playlists={playlists} />
+              <TVRow
+                key={tv.id}
+                tv={tv}
+                playlists={playlists}
+                onUpdate={handleUpdateTV}
+                onRemove={handleRemoveTV}
+              />
             ))}
-            {tvs.length === 0 && (
+            {!loading && tvs.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
                   Nenhuma TV registrada.

@@ -1,4 +1,4 @@
-import { TV, Playlist } from '@/stores/main'
+import { Playlist } from '@/stores/main'
 import {
   Select,
   SelectContent,
@@ -11,10 +11,16 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
 import { ExternalLink, Copy, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
-import useMainStore from '@/stores/main'
+import { SupabaseTV } from '@/services/tvs'
 
-export function TVRow({ tv, playlists }: { tv: TV; playlists: Playlist[] }) {
-  const { updateTV, removeTV } = useMainStore()
+interface TVRowProps {
+  tv: SupabaseTV
+  playlists: Playlist[]
+  onUpdate: (id: string, updates: Partial<SupabaseTV>) => void
+  onRemove: (id: string) => void
+}
+
+export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
   const [copied, setCopied] = useState(false)
 
   const playerUrl = `${window.location.origin}/player/${tv.id}`
@@ -36,7 +42,7 @@ export function TVRow({ tv, playlists }: { tv: TV; playlists: Playlist[] }) {
           <Switch
             checked={tv.status === 'online'}
             onCheckedChange={(checked) =>
-              updateTV(tv.id, { status: checked ? 'online' : 'offline' })
+              onUpdate(tv.id, { status: checked ? 'online' : 'offline' })
             }
             aria-label="Alternar status da TV"
           />
@@ -52,8 +58,8 @@ export function TVRow({ tv, playlists }: { tv: TV; playlists: Playlist[] }) {
       </TableCell>
       <TableCell>
         <Select
-          value={tv.playlistId || 'none'}
-          onValueChange={(val) => updateTV(tv.id, { playlistId: val === 'none' ? null : val })}
+          value={tv.playlist_id || 'none'}
+          onValueChange={(val) => onUpdate(tv.id, { playlist_id: val === 'none' ? null : val })}
         >
           <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm">
             <SelectValue placeholder="Sem Playlist" />
@@ -90,7 +96,7 @@ export function TVRow({ tv, playlists }: { tv: TV; playlists: Playlist[] }) {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => removeTV(tv.id)}
+            onClick={() => onRemove(tv.id)}
             className="h-9 text-destructive hover:bg-destructive/10"
           >
             Remover

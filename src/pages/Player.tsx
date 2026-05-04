@@ -1,23 +1,73 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import useMainStore from '@/stores/main'
 import { AlertCircle, MonitorOff } from 'lucide-react'
+import { getTV, SupabaseTV } from '@/services/tvs'
+import { supabase } from '@/lib/supabase/client'
 
 export default function Player() {
   const { tvId } = useParams()
   const { tvs, playlists, files } = useMainStore()
 
+  const tvsRef = useRef(tvs)
+  useEffect(() => {
+    tvsRef.current = tvs
+  }, [tvs])
+
   const [currentIndex, setCurrentIndex] = useState(0)
   const [playlistId, setPlaylistId] = useState<string | null>(null)
 
-  const currentTV = tvs.find((t) => t.id === tvId)
+  const [currentTV, setCurrentTV] = useState<SupabaseTV | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (currentTV && currentTV.playlistId !== playlistId) {
-      setPlaylistId(currentTV.playlistId)
+    if (!tvId) return
+
+    const fetchTV = async () => {
+      const { data } = await getTV(tvId)
+      if (data) {
+        setCurrentTV(data)
+      } else {
+        const localTV = tvsRef.current.find((t: any) => t.id === tvId)
+        if (localTV) {
+          setCurrentTV({
+            id: localTV.id,
+            name: localTV.name,
+            location: localTV.location,
+            status: localTV.status,
+            playlist_id: localTV.playlistId,
+          })
+        }
+      }
+      setLoading(false)
+    }
+
+    fetchTV()
+
+    const sub = supabase
+      .channel(`tv-${tvId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'tvs', filter: `id=eq.${tvId}` },
+        (payload) => {
+          if (payload.new) {
+            setCurrentTV(payload.new as SupabaseTV)
+          }
+        },
+      )
+      .subscribe()
+
+    return () => {
+      sub.unsubscribe()
+    }
+  }, [tvId])
+
+  useEffect(() => {
+    if (currentTV && currentTV.playlist_id !== playlistId) {
+      setPlaylistId(currentTV.playlist_id)
       setCurrentIndex(0)
     }
-  }, [currentTV?.playlistId, playlistId])
+  }, [currentTV?.playlist_id, playlistId])
 
   const playlist = playlists.find((p) => p.id === playlistId)
   const items = playlist?.items || []
@@ -47,6 +97,14 @@ export default function Player() {
 
     return () => clearTimeout(timeout)
   }, [currentIndex, currentItem, currentFile, items.length])
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-black text-white text-xl">
+        Carregando...
+      </div>
+    )
+  }
 
   if (!currentTV) {
     return (
