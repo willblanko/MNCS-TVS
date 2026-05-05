@@ -74,25 +74,42 @@ export function MediaCard({
         const prefix = isThumb ? 'thumb-' : ''
         const newPath = `${folderPath}${prefix}${safeName}-${Date.now()}.${ext}`
 
+        const isNotFoundError = (err: any) => {
+          if (!err) return false
+          const msg = String(err.message || '').toLowerCase()
+          const code = String(err.code || err.error || '').toLowerCase()
+          return (
+            msg.includes('not found') ||
+            msg.includes('nosuchkey') ||
+            msg.includes('no such key') ||
+            code === 'nosuchkey' ||
+            code === 'not_found' ||
+            err.statusCode === 404 ||
+            err.status === 404
+          )
+        }
+
         let finalNewPath = newPath
         let { error: moveError } = await supabase.storage.from(bucketName).move(oldPath, newPath)
 
-        if (moveError && moveError.message.toLowerCase().includes('not found')) {
-          const fallbackOldPath = `media/${oldPath}`
-          const fallbackNewPath = `media/${newPath}`
+        if (moveError && isNotFoundError(moveError)) {
+          if (!oldPath.startsWith('media/')) {
+            const fallbackOldPath = `media/${oldPath}`
+            const fallbackNewPath = `media/${newPath}`
 
-          const { error: fallbackError } = await supabase.storage
-            .from(bucketName)
-            .move(fallbackOldPath, fallbackNewPath)
-          if (!fallbackError) {
-            finalNewPath = fallbackNewPath
-            moveError = null
+            const { error: fallbackError } = await supabase.storage
+              .from(bucketName)
+              .move(fallbackOldPath, fallbackNewPath)
+            if (!fallbackError) {
+              finalNewPath = fallbackNewPath
+              moveError = null
+            }
           }
         }
 
         if (moveError) {
-          if (moveError.message.toLowerCase().includes('not found')) {
-            console.warn('File not found in storage, skipping storage rename.')
+          if (isNotFoundError(moveError)) {
+            console.warn('File not found in storage, skipping storage rename.', moveError)
             return urlStr // Keep old URL
           }
           throw moveError
@@ -151,7 +168,11 @@ export function MediaCard({
         if (match) {
           const bucketName = match[1]
           const filePath = decodeURIComponent(match[2])
-          await supabase.storage.from(bucketName).remove([filePath, `media/${filePath}`])
+          const pathsToRemove = [filePath]
+          if (!filePath.startsWith('media/')) {
+            pathsToRemove.push(`media/${filePath}`)
+          }
+          await supabase.storage.from(bucketName).remove(pathsToRemove)
         }
       }
 
