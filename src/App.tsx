@@ -11,6 +11,7 @@ import UsersPage from './pages/Users'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 import { AuthProvider, useAuth } from './hooks/use-auth'
+import { ThemeProvider } from '@/components/theme-provider'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { useState } from 'react'
@@ -79,32 +80,34 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 }
 
 const App = () => (
-  <AuthProvider>
-    <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <Routes>
-          <Route
-            element={
-              <AuthGuard>
-                <Layout />
-              </AuthGuard>
-            }
-          >
-            <Route path="/" element={<Navigate to="/biblioteca" replace />} />
-            <Route path="/biblioteca" element={<Library />} />
-            <Route path="/playlists" element={<Playlists />} />
-            <Route path="/tvs" element={<TVs />} />
-            <Route path="/usuarios" element={<UsersPage />} />
-            <Route path="/perfil" element={<Profile />} />
-          </Route>
-          <Route path="/player/:tvId" element={<Player />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </TooltipProvider>
-    </BrowserRouter>
-  </AuthProvider>
+  <ThemeProvider defaultTheme="system" storageKey="mncs-theme">
+    <AuthProvider>
+      <BrowserRouter future={{ v7_startTransition: false, v7_relativeSplatPath: false }}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <Routes>
+            <Route
+              element={
+                <AuthGuard>
+                  <Layout />
+                </AuthGuard>
+              }
+            >
+              <Route path="/" element={<Navigate to="/biblioteca" replace />} />
+              <Route path="/biblioteca" element={<Library />} />
+              <Route path="/playlists" element={<Playlists />} />
+              <Route path="/tvs" element={<TVs />} />
+              <Route path="/usuarios" element={<UsersPage />} />
+              <Route path="/perfil" element={<Profile />} />
+            </Route>
+            <Route path="/player/:tvId" element={<Player />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </TooltipProvider>
+      </BrowserRouter>
+    </AuthProvider>
+  </ThemeProvider>
 )
 
 export default App

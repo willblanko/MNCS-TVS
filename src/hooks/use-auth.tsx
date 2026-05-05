@@ -8,6 +8,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => Promise<{ error: any }>
+  updateProfile: (updates: { name?: string; avatar_url?: string }) => Promise<{ error: any }>
   loading: boolean
 }
 
@@ -59,8 +60,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error }
   }
 
+  const updateProfile = async (updates: { name?: string; avatar_url?: string }) => {
+    const { error } = await supabase.auth.updateUser({
+      data: updates,
+    })
+
+    if (error) return { error }
+
+    if (user) {
+      const { error: dbError } = await supabase.from('profiles').update(updates).eq('id', user.id)
+
+      if (dbError) console.error('Error updating profile in DB:', dbError)
+    }
+
+    return { error: null }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, session, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider
+      value={{ user, session, signUp, signIn, signOut, updateProfile, loading }}
+    >
       {children}
     </AuthContext.Provider>
   )
