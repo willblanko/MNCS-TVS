@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
-import { AlertCircle, MonitorOff } from 'lucide-react'
+import { AlertCircle, MonitorOff, VolumeX } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 
 export default function Player() {
@@ -10,6 +10,8 @@ export default function Player() {
   const [currentTV, setCurrentTV] = useState<any | null>(null)
   const [playlistItems, setPlaylistItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isMuted, setIsMuted] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     if (!tvId) return
@@ -117,6 +119,23 @@ export default function Player() {
     }
   }, [currentIndex, currentItem, currentFile, playlistItems.length])
 
+  useEffect(() => {
+    if (currentFile?.type === 'video' && videoRef.current) {
+      const video = videoRef.current
+      video.muted = isMuted
+      const promise = video.play()
+      if (promise !== undefined) {
+        promise.catch((error) => {
+          if (error.name === 'NotAllowedError') {
+            video.muted = true
+            setIsMuted(true)
+            video.play().catch(console.error)
+          }
+        })
+      }
+    }
+  }, [currentIndex, currentFile, isMuted])
+
   const handleVideoEnded = () => {
     if (playlistItems.length > 1) {
       setCurrentIndex((currentIndex + 1) % playlistItems.length)
@@ -129,7 +148,7 @@ export default function Player() {
     }
   }
 
-  const toggleFullScreen = () => {
+  const handleInteraction = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch((err) => {
         console.error(`Error attempting to enable fullscreen: ${err.message}`)
@@ -137,6 +156,14 @@ export default function Player() {
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen()
+      }
+    }
+
+    if (isMuted) {
+      setIsMuted(false)
+      if (videoRef.current) {
+        videoRef.current.muted = false
+        videoRef.current.play().catch(console.error)
       }
     }
   }
@@ -168,7 +195,7 @@ export default function Player() {
       <div
         className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
         style={{ zIndex: 2147483647 }}
-        onClick={toggleFullScreen}
+        onClick={handleInteraction}
       >
         <MonitorOff className="h-16 w-16 mb-4 opacity-50" />
         <h1 className="text-2xl font-bold">{currentTV.name}</h1>
@@ -183,7 +210,7 @@ export default function Player() {
       <div
         className="fixed inset-0 flex h-screen w-screen flex-col items-center justify-center bg-black text-white/50 cursor-pointer select-none"
         style={{ zIndex: 2147483647 }}
-        onClick={toggleFullScreen}
+        onClick={handleInteraction}
       >
         <AlertCircle className="h-16 w-16 mb-4 opacity-50" />
         <h1 className="text-2xl font-bold">{currentTV.name}</h1>
@@ -197,15 +224,14 @@ export default function Player() {
     <div
       className="fixed inset-0 h-screen w-screen bg-black overflow-hidden select-none cursor-none"
       style={{ zIndex: 2147483647 }}
-      onClick={toggleFullScreen}
+      onClick={handleInteraction}
     >
       {currentFile.type === 'video' ? (
         <video
+          ref={videoRef}
           key={currentItem.id}
           src={currentFile.url}
           className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
-          autoPlay
-          muted
           playsInline
           loop={playlistItems.length === 1}
           onEnded={handleVideoEnded}
@@ -218,6 +244,13 @@ export default function Player() {
           alt=""
           className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
         />
+      )}
+
+      {isMuted && currentFile.type === 'video' && (
+        <div className="absolute bottom-8 right-8 z-50 flex items-center gap-2 rounded-full bg-black/50 px-4 py-2 text-white/70 backdrop-blur-md animate-pulse">
+          <VolumeX className="h-5 w-5" />
+          <span className="text-sm font-medium">Toque na tela para ativar o som</span>
+        </div>
       )}
     </div>
   )
