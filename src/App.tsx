@@ -15,6 +15,7 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { useState } from 'react'
 import { LogIn } from 'lucide-react'
+import logo from './assets/meida-icon-black-1f9f5.png'
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, signIn } = useAuth()
@@ -33,11 +34,9 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       <div className="flex h-screen w-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900">
         <div className="w-full max-w-sm p-8 bg-card rounded-xl shadow-lg border">
           <div className="flex items-center justify-center mb-6">
-            <div className="bg-primary/10 p-3 rounded-full">
-              <LogIn className="h-6 w-6 text-primary" />
-            </div>
+            <img src={logo} alt="MNCS Logo" className="h-24 w-auto object-contain" />
           </div>
-          <h1 className="text-2xl font-bold text-center mb-2">Acesso Restrito</h1>
+          <h1 className="text-2xl font-bold text-center mb-2">MNCS Valqueire - TV Show</h1>
           <p className="text-center text-sm text-muted-foreground mb-6">
             Use as credenciais de administrador para acessar o painel.
           </p>
@@ -68,7 +67,7 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
               />
             </div>
             <Button type="submit" className="w-full">
-              Entrar no Painel
+              Entrar
             </Button>
           </form>
         </div>
