@@ -117,16 +117,22 @@ export type Database = {
       playlists: {
         Row: {
           created_at: string | null
+          effect: string
+          effect_duration: number
           id: string
           name: string
         }
         Insert: {
           created_at?: string | null
+          effect?: string
+          effect_duration?: number
           id?: string
           name: string
         }
         Update: {
           created_at?: string | null
+          effect?: string
+          effect_duration?: number
           id?: string
           name?: string
         }
@@ -361,6 +367,8 @@ export const Constants = {
 //   id: uuid (not null, default: gen_random_uuid())
 //   name: text (not null)
 //   created_at: timestamp with time zone (nullable, default: now())
+//   effect: text (not null, default: 'fade-in'::text)
+//   effect_duration: numeric (not null, default: 1.0)
 // Table: profiles
 //   id: uuid (not null)
 //   email: text (not null)

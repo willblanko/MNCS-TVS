@@ -9,7 +9,7 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Upload, Loader2, Moon, Sun, Save } from 'lucide-react'
+import { User, Upload, Loader2, Moon, Sun, Save, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/lib/supabase/client'
 
 export default function Profile() {
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, updatePassword } = useAuth()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
@@ -27,6 +27,12 @@ export default function Profile() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -77,6 +83,34 @@ export default function Profile() {
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      toast({ title: 'Informe a senha atual', variant: 'destructive' })
+      return
+    }
+    if (newPassword.length < 6) {
+      toast({ title: 'A nova senha deve ter no mínimo 6 caracteres', variant: 'destructive' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'As senhas não coincidem', variant: 'destructive' })
+      return
+    }
+
+    setIsChangingPassword(true)
+    const { error } = await updatePassword(currentPassword, newPassword)
+
+    if (error) {
+      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
+    } else {
+      toast({ title: 'Senha alterada com sucesso!' })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+    }
+    setIsChangingPassword(false)
   }
 
   const isDark =
@@ -151,6 +185,58 @@ export default function Profile() {
               <Save className="mr-2 h-4 w-4" />
             )}
             Salvar Alterações
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Segurança</CardTitle>
+          <CardDescription>Altere a sua senha de acesso ao sistema.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Senha Atual</Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="Sua senha atual"
+              className="max-w-md"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">Nova Senha</Label>
+            <Input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Sua nova senha"
+              className="max-w-md"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirme a nova senha"
+              className="max-w-md"
+            />
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-end border-t p-6">
+          <Button onClick={handleChangePassword} disabled={isChangingPassword} variant="secondary">
+            {isChangingPassword ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="mr-2 h-4 w-4" />
+            )}
+            Alterar Senha
           </Button>
         </CardFooter>
       </Card>
