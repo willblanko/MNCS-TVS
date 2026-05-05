@@ -53,10 +53,14 @@ export function MediaCard({
       let newUrl = file.url
       let newThumbnail = file.thumbnail
 
-      const match = file.url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+      let urlStr = file.url
+      if (urlStr.includes('?')) {
+        urlStr = urlStr.split('?')[0]
+      }
+      const match = urlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
       if (match) {
         const bucketName = match[1]
-        const oldPath = match[2]
+        const oldPath = decodeURIComponent(match[2])
 
         const ext = oldPath.split('.').pop()
         const folderPath = oldPath.substring(0, oldPath.lastIndexOf('/') + 1)
@@ -74,10 +78,14 @@ export function MediaCard({
         newUrl = publicUrlData.publicUrl
 
         if (file.thumbnail) {
-          const thumbMatch = file.thumbnail.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+          let thumbUrlStr = file.thumbnail
+          if (thumbUrlStr.includes('?')) {
+            thumbUrlStr = thumbUrlStr.split('?')[0]
+          }
+          const thumbMatch = thumbUrlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
           if (thumbMatch) {
             const thumbBucket = thumbMatch[1]
-            const thumbOldPath = thumbMatch[2]
+            const thumbOldPath = decodeURIComponent(thumbMatch[2])
             const thumbExt = thumbOldPath.split('.').pop()
             const thumbNewPath = `${folderPath}thumb-${safeName}-${Date.now()}.${thumbExt}`
             const { error: thumbMoveError } = await supabase.storage
@@ -123,18 +131,26 @@ export function MediaCard({
     setIsDeleting(true)
     try {
       // Remove from Storage
-      const match = file.url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+      let urlStr = file.url
+      if (urlStr.includes('?')) {
+        urlStr = urlStr.split('?')[0]
+      }
+      const match = urlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
       if (match) {
         const bucketName = match[1]
-        const filePath = match[2]
+        const filePath = decodeURIComponent(match[2])
         await supabase.storage.from(bucketName).remove([filePath])
       }
 
       if (file.thumbnail) {
-        const thumbMatch = file.thumbnail.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+        let thumbUrlStr = file.thumbnail
+        if (thumbUrlStr.includes('?')) {
+          thumbUrlStr = thumbUrlStr.split('?')[0]
+        }
+        const thumbMatch = thumbUrlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
         if (thumbMatch) {
           const thumbBucket = thumbMatch[1]
-          const thumbPath = thumbMatch[2]
+          const thumbPath = decodeURIComponent(thumbMatch[2])
           await supabase.storage.from(thumbBucket).remove([thumbPath])
         }
       }
