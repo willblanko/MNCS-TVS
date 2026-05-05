@@ -46,8 +46,8 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
         video.muted = true
         video.playsInline = true
         video.src = URL.createObjectURL(file)
-        video.onloadedmetadata = () => {
-          video.currentTime = Math.min(1, video.duration / 2 || 0.5)
+        video.onloadeddata = () => {
+          video.currentTime = video.duration > 2 ? 1 : video.duration / 2 || 0.1
         }
         video.onseeked = () => {
           canvas.width = video.videoWidth

@@ -50,72 +50,9 @@ export function MediaCard({
     }
     setIsRenaming(true)
     try {
-      let newUrl = file.url
-      let newThumbnail = file.thumbnail
-
-      const attemptStorageRename = async (urlStr: string, isThumb = false) => {
-        let cleanUrl = urlStr
-        if (cleanUrl.includes('?')) {
-          cleanUrl = cleanUrl.split('?')[0]
-        }
-        const match = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
-        if (!match) return urlStr
-
-        const bucketName = match[1]
-        const oldPath = decodeURIComponent(match[2])
-        const ext = oldPath.split('.').pop()
-        const folderPath = oldPath.substring(0, oldPath.lastIndexOf('/') + 1)
-        const safeName = newName
-          .trim()
-          .replace(/[^a-zA-Z0-9-_\s]/g, '')
-          .replace(/\s+/g, '-')
-          .toLowerCase()
-
-        const prefix = isThumb ? 'thumb-' : ''
-        const newPath = `${folderPath}${prefix}${safeName}-${Date.now()}.${ext}`
-
-        const isNotFoundError = (err: any) => {
-          if (!err) return false
-          const msg = String(err.message || '').toLowerCase()
-          const code = String(err.code || err.error || '').toLowerCase()
-          return (
-            msg.includes('not found') ||
-            msg.includes('nosuchkey') ||
-            msg.includes('no such key') ||
-            code === 'nosuchkey' ||
-            code === 'not_found' ||
-            err.statusCode === 404 ||
-            err.status === 404
-          )
-        }
-
-        const { error: moveError } = await supabase.storage.from(bucketName).move(oldPath, newPath)
-
-        if (moveError) {
-          if (isNotFoundError(moveError)) {
-            console.warn('File not found in storage, skipping storage rename.', moveError)
-            return urlStr // Keep old URL
-          }
-          throw moveError
-        }
-
-        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(newPath)
-        return publicUrlData.publicUrl
-      }
-
-      newUrl = await attemptStorageRename(file.url)
-
-      if (file.thumbnail) {
-        try {
-          newThumbnail = await attemptStorageRename(file.thumbnail, true)
-        } catch (e) {
-          console.warn('Failed to rename thumbnail', e)
-        }
-      }
-
       const { error } = await supabase
         .from('files')
-        .update({ name: newName.trim(), url: newUrl, thumbnail: newThumbnail })
+        .update({ name: newName.trim() })
         .eq('id', file.id)
 
       if (error) throw error
