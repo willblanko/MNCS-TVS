@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { MediaFile } from '@/stores/main'
 import { Card, CardContent } from '@/components/ui/card'
-import { Video, Image as ImageIcon, Trash2, Edit2, Play } from 'lucide-react'
+import { Video, Image as ImageIcon, Trash2, Edit2, Play, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -89,23 +89,7 @@ export function MediaCard({
           )
         }
 
-        let finalNewPath = newPath
-        let { error: moveError } = await supabase.storage.from(bucketName).move(oldPath, newPath)
-
-        if (moveError && isNotFoundError(moveError)) {
-          if (!oldPath.startsWith('media/')) {
-            const fallbackOldPath = `media/${oldPath}`
-            const fallbackNewPath = `media/${newPath}`
-
-            const { error: fallbackError } = await supabase.storage
-              .from(bucketName)
-              .move(fallbackOldPath, fallbackNewPath)
-            if (!fallbackError) {
-              finalNewPath = fallbackNewPath
-              moveError = null
-            }
-          }
-        }
+        const { error: moveError } = await supabase.storage.from(bucketName).move(oldPath, newPath)
 
         if (moveError) {
           if (isNotFoundError(moveError)) {
@@ -115,7 +99,7 @@ export function MediaCard({
           throw moveError
         }
 
-        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(finalNewPath)
+        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(newPath)
         return publicUrlData.publicUrl
       }
 
@@ -168,11 +152,7 @@ export function MediaCard({
         if (match) {
           const bucketName = match[1]
           const filePath = decodeURIComponent(match[2])
-          const pathsToRemove = [filePath]
-          if (!filePath.startsWith('media/')) {
-            pathsToRemove.push(`media/${filePath}`)
-          }
-          await supabase.storage.from(bucketName).remove(pathsToRemove)
+          await supabase.storage.from(bucketName).remove([filePath])
         }
       }
 
@@ -264,10 +244,41 @@ export function MediaCard({
                 size="icon"
                 className="h-8 w-8 text-muted-foreground hover:text-primary"
                 disabled={isDeleting || isRenaming}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(file.url)
+                    const blob = await response.blob()
+                    const url = window.URL.createObjectURL(blob)
+                    const link = document.createElement('a')
+                    link.href = url
+                    link.download = file.name
+                    document.body.appendChild(link)
+                    link.click()
+                    document.body.removeChild(link)
+                    window.URL.revokeObjectURL(url)
+                  } catch (err) {
+                    console.error('Download failed', err)
+                    toast({
+                      title: 'Erro no download',
+                      description: 'Não foi possível baixar o arquivo.',
+                      variant: 'destructive',
+                    })
+                  }
+                }}
+                title="Baixar arquivo"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                disabled={isDeleting || isRenaming}
                 onClick={() => {
                   setNewName(file.name)
                   setIsRenameOpen(true)
                 }}
+                title="Renomear arquivo"
               >
                 <Edit2 className="h-4 w-4" />
               </Button>

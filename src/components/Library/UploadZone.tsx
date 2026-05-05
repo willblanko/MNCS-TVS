@@ -46,8 +46,8 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
         video.muted = true
         video.playsInline = true
         video.src = URL.createObjectURL(file)
-        video.onloadeddata = () => {
-          video.currentTime = 1 // seek to 1 second
+        video.onloadedmetadata = () => {
+          video.currentTime = Math.min(1, video.duration / 2 || 0.5)
         }
         video.onseeked = () => {
           canvas.width = video.videoWidth
@@ -105,9 +105,15 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
       const type = isVideo ? 'video' : 'image'
 
       const fileExt = file.name.split('.').pop()
-      const baseName = Math.random().toString(36).substring(2) + '_' + Date.now()
-      const fileName = `${baseName}.${fileExt}`
-      const thumbName = `thumbnails/${baseName}.jpg`
+      const rawBaseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
+      const safeBaseName = rawBaseName
+        .replace(/[^a-zA-Z0-9-_\s]/g, '')
+        .replace(/\s+/g, '-')
+        .toLowerCase()
+      const uniqueSuffix = Date.now()
+
+      const fileName = `${safeBaseName}-${uniqueSuffix}.${fileExt}`
+      const thumbName = `thumbnails/${safeBaseName}-${uniqueSuffix}.jpg`
 
       const thumbBlob = await generateThumbnail(file)
 
