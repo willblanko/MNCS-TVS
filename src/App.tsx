@@ -16,7 +16,8 @@ import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { useState } from 'react'
 import { LogIn } from 'lucide-react'
-import logo from './assets/meida-icon-black-1f9f5.png'
+import logoBlack from './assets/meida-icon-black-1f9f5.png'
+import logoWhite from './assets/meida-icon-white-a3ca9.png'
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const { user, loading, signIn } = useAuth()
@@ -35,7 +36,16 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       <div className="flex h-screen w-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900">
         <div className="w-full max-w-sm p-8 bg-card rounded-xl shadow-lg border">
           <div className="flex items-center justify-center mb-6">
-            <img src={logo} alt="MNCS Logo" className="h-24 w-auto object-contain" />
+            <img
+              src={logoBlack}
+              alt="MNCS Logo"
+              className="h-24 w-auto object-contain dark:hidden"
+            />
+            <img
+              src={logoWhite}
+              alt="MNCS Logo"
+              className="h-24 w-auto object-contain hidden dark:block"
+            />
           </div>
           <h1 className="text-2xl font-bold text-center mb-2">MNCS Valqueire - TV Show</h1>
           <p className="text-center text-sm text-muted-foreground mb-6">
