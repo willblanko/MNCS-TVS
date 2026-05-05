@@ -53,15 +53,16 @@ export function MediaCard({
       let newUrl = file.url
       let newThumbnail = file.thumbnail
 
-      let urlStr = file.url
-      if (urlStr.includes('?')) {
-        urlStr = urlStr.split('?')[0]
-      }
-      const match = urlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
-      if (match) {
+      const attemptStorageRename = async (urlStr: string, isThumb = false) => {
+        let cleanUrl = urlStr
+        if (cleanUrl.includes('?')) {
+          cleanUrl = cleanUrl.split('?')[0]
+        }
+        const match = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+        if (!match) return urlStr
+
         const bucketName = match[1]
         const oldPath = decodeURIComponent(match[2])
-
         const ext = oldPath.split('.').pop()
         const folderPath = oldPath.substring(0, oldPath.lastIndexOf('/') + 1)
         const safeName = newName
@@ -69,35 +70,45 @@ export function MediaCard({
           .replace(/[^a-zA-Z0-9-_\s]/g, '')
           .replace(/\s+/g, '-')
           .toLowerCase()
-        const newPath = `${folderPath}${safeName}-${Date.now()}.${ext}`
 
-        const { error: moveError } = await supabase.storage.from(bucketName).move(oldPath, newPath)
-        if (moveError) throw moveError
+        const prefix = isThumb ? 'thumb-' : ''
+        const newPath = `${folderPath}${prefix}${safeName}-${Date.now()}.${ext}`
 
-        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(newPath)
-        newUrl = publicUrlData.publicUrl
+        let finalNewPath = newPath
+        let { error: moveError } = await supabase.storage.from(bucketName).move(oldPath, newPath)
 
-        if (file.thumbnail) {
-          let thumbUrlStr = file.thumbnail
-          if (thumbUrlStr.includes('?')) {
-            thumbUrlStr = thumbUrlStr.split('?')[0]
+        if (moveError && moveError.message.toLowerCase().includes('not found')) {
+          const fallbackOldPath = `media/${oldPath}`
+          const fallbackNewPath = `media/${newPath}`
+
+          const { error: fallbackError } = await supabase.storage
+            .from(bucketName)
+            .move(fallbackOldPath, fallbackNewPath)
+          if (!fallbackError) {
+            finalNewPath = fallbackNewPath
+            moveError = null
           }
-          const thumbMatch = thumbUrlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
-          if (thumbMatch) {
-            const thumbBucket = thumbMatch[1]
-            const thumbOldPath = decodeURIComponent(thumbMatch[2])
-            const thumbExt = thumbOldPath.split('.').pop()
-            const thumbNewPath = `${folderPath}thumb-${safeName}-${Date.now()}.${thumbExt}`
-            const { error: thumbMoveError } = await supabase.storage
-              .from(thumbBucket)
-              .move(thumbOldPath, thumbNewPath)
-            if (!thumbMoveError) {
-              const { data: thumbPublicUrlData } = supabase.storage
-                .from(thumbBucket)
-                .getPublicUrl(thumbNewPath)
-              newThumbnail = thumbPublicUrlData.publicUrl
-            }
+        }
+
+        if (moveError) {
+          if (moveError.message.toLowerCase().includes('not found')) {
+            console.warn('File not found in storage, skipping storage rename.')
+            return urlStr // Keep old URL
           }
+          throw moveError
+        }
+
+        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(finalNewPath)
+        return publicUrlData.publicUrl
+      }
+
+      newUrl = await attemptStorageRename(file.url)
+
+      if (file.thumbnail) {
+        try {
+          newThumbnail = await attemptStorageRename(file.thumbnail, true)
+        } catch (e) {
+          console.warn('Failed to rename thumbnail', e)
         }
       }
 
@@ -131,28 +142,22 @@ export function MediaCard({
     setIsDeleting(true)
     try {
       // Remove from Storage
-      let urlStr = file.url
-      if (urlStr.includes('?')) {
-        urlStr = urlStr.split('?')[0]
-      }
-      const match = urlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
-      if (match) {
-        const bucketName = match[1]
-        const filePath = decodeURIComponent(match[2])
-        await supabase.storage.from(bucketName).remove([filePath])
+      const attemptStorageRemove = async (urlStr: string) => {
+        let cleanUrl = urlStr
+        if (cleanUrl.includes('?')) {
+          cleanUrl = cleanUrl.split('?')[0]
+        }
+        const match = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+        if (match) {
+          const bucketName = match[1]
+          const filePath = decodeURIComponent(match[2])
+          await supabase.storage.from(bucketName).remove([filePath, `media/${filePath}`])
+        }
       }
 
+      await attemptStorageRemove(file.url)
       if (file.thumbnail) {
-        let thumbUrlStr = file.thumbnail
-        if (thumbUrlStr.includes('?')) {
-          thumbUrlStr = thumbUrlStr.split('?')[0]
-        }
-        const thumbMatch = thumbUrlStr.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
-        if (thumbMatch) {
-          const thumbBucket = thumbMatch[1]
-          const thumbPath = decodeURIComponent(thumbMatch[2])
-          await supabase.storage.from(thumbBucket).remove([thumbPath])
-        }
+        await attemptStorageRemove(file.thumbnail)
       }
 
       // Remove from Database
