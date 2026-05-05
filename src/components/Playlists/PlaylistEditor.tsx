@@ -181,14 +181,14 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                     Nenhum arquivo na playlist. Clique nas mídias ao lado para adicionar.
                   </div>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="space-y-2 pr-3">
                     {items.map((item, idx) => {
                       const file = files.find((f) => f.id === item.fileId)
                       if (!file) return null
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center gap-3 bg-muted/50 p-2 rounded-md"
+                          className="flex items-center gap-2 sm:gap-3 bg-muted/50 p-2 rounded-md"
                         >
                           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
                           <img
@@ -196,9 +196,9 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                             alt=""
                             className="h-10 w-10 object-cover rounded shrink-0 bg-background"
                           />
-                          <div className="flex-1 overflow-hidden">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             <p className="text-sm font-medium truncate">{file.name}</p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground truncate">
                               {file.type === 'video' ? 'Vídeo completo' : `${item.duration}s`}
                             </p>
                           </div>
