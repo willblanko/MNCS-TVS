@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-  SheetClose,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -122,24 +122,24 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-3xl flex flex-col h-full">
-        <SheetHeader>
-          <SheetTitle>{playlist ? 'Editar Playlist' : 'Criar Playlist'}</SheetTitle>
-          <SheetDescription>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[80vh] flex flex-col overflow-hidden p-4 sm:p-6">
+        <DialogHeader className="shrink-0">
+          <DialogTitle>{playlist ? 'Editar Playlist' : 'Criar Playlist'}</DialogTitle>
+          <DialogDescription>
             Selecione as mídias da biblioteca e organize a ordem e duração.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="flex-1 flex flex-col gap-4 mt-6 overflow-hidden">
+        <div className="flex-1 flex flex-col gap-4 mt-2 overflow-hidden min-h-0">
           <div className="space-y-2 shrink-0">
             <Label>Nome da Playlist</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          <div className="flex flex-col md:flex-row gap-6 flex-1 overflow-hidden min-h-0 mt-2">
+          <div className="flex flex-col sm:flex-row gap-4 flex-1 overflow-hidden min-h-0">
             {/* Left side: Available files from library */}
-            <div className="flex-1 flex flex-col gap-2 overflow-hidden w-full md:w-1/2">
+            <div className="flex-1 flex flex-col gap-2 overflow-hidden w-full sm:w-1/2 min-w-0">
               <Label>Biblioteca de Mídias</Label>
               <ScrollArea className="flex-1 border rounded-md p-2 bg-muted/10">
                 {files.length === 0 ? (
@@ -163,7 +163,9 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                           <Plus className="text-white h-8 w-8" />
                         </div>
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                          <p className="text-[10px] text-white truncate">{file.name}</p>
+                          <p className="text-[10px] text-white truncate" title={file.name}>
+                            {file.name}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -173,7 +175,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
             </div>
 
             {/* Right side: Current playlist items */}
-            <div className="flex-1 flex flex-col gap-2 overflow-hidden w-full md:w-1/2">
+            <div className="flex-1 flex flex-col gap-2 overflow-hidden w-full sm:w-1/2 min-w-0">
               <Label>Itens na Playlist</Label>
               <ScrollArea className="flex-1 border rounded-md p-2">
                 {items.length === 0 ? (
@@ -181,14 +183,14 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                     Nenhum arquivo na playlist. Clique nas mídias ao lado para adicionar.
                   </div>
                 ) : (
-                  <div className="space-y-2 pr-3">
+                  <div className="space-y-2 pr-3 max-w-full">
                     {items.map((item, idx) => {
                       const file = files.find((f) => f.id === item.fileId)
                       if (!file) return null
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center gap-2 sm:gap-3 bg-muted/50 p-2 rounded-md"
+                          className="flex items-center gap-2 sm:gap-3 bg-muted/50 p-2 rounded-md max-w-full overflow-hidden"
                         >
                           <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
                           <img
@@ -196,9 +198,11 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                             alt=""
                             className="h-10 w-10 object-cover rounded shrink-0 bg-background"
                           />
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate block" title={file.name}>
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate block">
                               {file.type === 'video' ? 'Vídeo completo' : `${item.duration}s`}
                             </p>
                           </div>
@@ -240,17 +244,17 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
           </div>
         </div>
 
-        <SheetFooter className="mt-4 pt-4 border-t shrink-0">
-          <SheetClose asChild>
+        <DialogFooter className="mt-4 pt-4 border-t shrink-0">
+          <DialogClose asChild>
             <Button variant="outline" disabled={loading}>
               Cancelar
             </Button>
-          </SheetClose>
+          </DialogClose>
           <Button onClick={handleSave} disabled={loading}>
             {loading ? 'Salvando...' : 'Salvar Playlist'}
           </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
