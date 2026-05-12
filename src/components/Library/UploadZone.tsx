@@ -34,58 +34,21 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
     setIsDragging(false)
   }, [])
 
-  const generateThumbnail = async (file: File): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      const isVideo = file.type.startsWith('video/')
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
+  const uploadToCloudinary = async (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('upload_preset', 'ml_default')
 
-      if (isVideo) {
-        const video = document.createElement('video')
-        video.autoplay = false
-        video.muted = true
-        video.playsInline = true
-        video.src = URL.createObjectURL(file)
-        video.onloadeddata = () => {
-          video.currentTime = video.duration > 2 ? 1 : video.duration / 2 || 0.1
-        }
-        video.onseeked = () => {
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-          ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
-          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7)
-          URL.revokeObjectURL(video.src)
-        }
-        video.onerror = () => resolve(null)
-      } else {
-        const img = new Image()
-        img.src = URL.createObjectURL(file)
-        img.onload = () => {
-          const maxSize = 800
-          let width = img.width
-          let height = img.height
-
-          if (width > height) {
-            if (width > maxSize) {
-              height *= maxSize / width
-              width = maxSize
-            }
-          } else {
-            if (height > maxSize) {
-              width *= maxSize / height
-              height = maxSize
-            }
-          }
-
-          canvas.width = width
-          canvas.height = height
-          ctx?.drawImage(img, 0, 0, width, height)
-          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.7)
-          URL.revokeObjectURL(img.src)
-        }
-        img.onerror = () => resolve(null)
-      }
+    const response = await fetch('https://api.cloudinary.com/v1_1/djr83woxh/auto/upload', {
+      method: 'POST',
+      body: formData,
     })
+
+    if (!response.ok) {
+      throw new Error('Falha ao fazer upload para o Cloudinary')
+    }
+
+    return await response.json()
   }
 
   const uploadFile = async (file: File) => {
@@ -104,43 +67,28 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
       const isVideo = file.type.startsWith('video/')
       const type = isVideo ? 'video' : 'image'
 
-      const fileExt = file.name.split('.').pop()
-      const rawBaseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name
-      const safeBaseName = rawBaseName
-        .replace(/[^a-zA-Z0-9-_\s]/g, '')
-        .replace(/\s+/g, '-')
-        .toLowerCase()
-      const uniqueSuffix = Date.now()
+      const cloudData = await uploadToCloudinary(file)
+      const fileUrl = cloudData.secure_url
 
-      const fileName = `${safeBaseName}-${uniqueSuffix}.${fileExt}`
-      const thumbName = `thumbnails/${safeBaseName}-${uniqueSuffix}.jpg`
-
-      const thumbBlob = await generateThumbnail(file)
-
-      const { error: uploadError } = await supabase.storage.from('media').upload(fileName, file)
-
-      if (uploadError) throw uploadError
-
-      const { data: publicUrlData } = supabase.storage.from('media').getPublicUrl(fileName)
-      let thumbnailUrl = publicUrlData.publicUrl
-
-      if (thumbBlob) {
-        const { error: thumbError } = await supabase.storage
-          .from('media')
-          .upload(thumbName, thumbBlob)
-        if (!thumbError) {
-          const { data: thumbUrlData } = supabase.storage.from('media').getPublicUrl(thumbName)
-          thumbnailUrl = thumbUrlData.publicUrl
+      let thumbnailUrl = fileUrl
+      if (isVideo) {
+        // Substituir a extensão por .jpg para pegar a miniatura do vídeo via Cloudinary
+        thumbnailUrl = fileUrl.replace(/\.[^/.]+$/, '.jpg')
+      } else {
+        // Para imagens, usa as transformações do cloudinary para reduzir o tamanho da miniatura
+        const urlParts = fileUrl.split('/upload/')
+        if (urlParts.length === 2) {
+          thumbnailUrl = `${urlParts[0]}/upload/c_scale,w_800/${urlParts[1]}`
         }
       }
 
       const { error: dbError } = await supabase.from('files').insert({
         name: file.name,
-        url: publicUrlData.publicUrl,
+        url: fileUrl,
         thumbnail: thumbnailUrl,
         type: type,
         original_size: file.size,
-        optimized_size: file.size,
+        optimized_size: cloudData.bytes || file.size,
         status: 'ready',
       })
 

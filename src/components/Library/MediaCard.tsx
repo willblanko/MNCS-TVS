@@ -79,8 +79,9 @@ export function MediaCard({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      // Remove from Storage
+      // Remove from Storage (somente se for do Supabase, Cloudinary não permite exclusão via frontend sem assinatura)
       const attemptStorageRemove = async (urlStr: string) => {
+        if (!urlStr.includes('supabase.co')) return
         let cleanUrl = urlStr
         if (cleanUrl.includes('?')) {
           cleanUrl = cleanUrl.split('?')[0]
@@ -183,6 +184,20 @@ export function MediaCard({
                 disabled={isDeleting || isRenaming}
                 onClick={async () => {
                   try {
+                    if (file.url.includes('cloudinary.com')) {
+                      const urlParts = file.url.split('/upload/')
+                      if (urlParts.length === 2) {
+                        const downloadUrl = `${urlParts[0]}/upload/fl_attachment/${urlParts[1]}`
+                        const link = document.createElement('a')
+                        link.href = downloadUrl
+                        link.download = file.name
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                        return
+                      }
+                    }
+
                     const response = await fetch(file.url)
                     const blob = await response.blob()
                     const url = window.URL.createObjectURL(blob)
