@@ -34,18 +34,24 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
     setIsDragging(false)
   }, [])
 
-  const uploadToCloudinary = async (file: File) => {
+  const uploadToCloudinary = async (file: File, isVideo: boolean) => {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('upload_preset', 'ml_default')
 
-    const response = await fetch('https://api.cloudinary.com/v1_1/djr83woxh/auto/upload', {
-      method: 'POST',
-      body: formData,
-    })
+    const resourceType = isVideo ? 'video' : 'image'
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/djr83woxh/${resourceType}/upload`,
+      {
+        method: 'POST',
+        body: formData,
+      },
+    )
 
     if (!response.ok) {
-      throw new Error('Falha ao fazer upload para o Cloudinary')
+      const err = await response.json().catch(() => ({}))
+      console.error('Cloudinary Upload Error:', err)
+      throw new Error(err?.error?.message || 'Falha ao fazer upload para o Cloudinary')
     }
 
     return await response.json()
@@ -67,7 +73,7 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
       const isVideo = file.type.startsWith('video/')
       const type = isVideo ? 'video' : 'image'
 
-      const cloudData = await uploadToCloudinary(file)
+      const cloudData = await uploadToCloudinary(file, isVideo)
       const fileUrl = cloudData.secure_url
 
       let thumbnailUrl = fileUrl
@@ -96,11 +102,11 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
 
       toast({ title: 'Upload concluído!', description: 'O arquivo foi salvo na biblioteca.' })
       if (onUploadSuccess) onUploadSuccess()
-    } catch (error) {
-      console.error(error)
+    } catch (error: any) {
+      console.error('Erro no uploadFile:', error)
       toast({
         title: 'Erro no upload',
-        description: 'Não foi possível salvar o arquivo.',
+        description: error.message || 'Não foi possível salvar o arquivo.',
         variant: 'destructive',
       })
     } finally {

@@ -81,16 +81,20 @@ export function MediaCard({
     try {
       // Remove from Storage (somente se for do Supabase, Cloudinary não permite exclusão via frontend sem assinatura)
       const attemptStorageRemove = async (urlStr: string) => {
-        if (!urlStr.includes('supabase.co')) return
-        let cleanUrl = urlStr
-        if (cleanUrl.includes('?')) {
-          cleanUrl = cleanUrl.split('?')[0]
-        }
-        const match = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
-        if (match) {
-          const bucketName = match[1]
-          const filePath = decodeURIComponent(match[2])
-          await supabase.storage.from(bucketName).remove([filePath])
+        try {
+          if (!urlStr.includes('supabase.co')) return
+          let cleanUrl = urlStr
+          if (cleanUrl.includes('?')) {
+            cleanUrl = cleanUrl.split('?')[0]
+          }
+          const match = cleanUrl.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/)
+          if (match) {
+            const bucketName = match[1]
+            const filePath = decodeURIComponent(match[2])
+            await supabase.storage.from(bucketName).remove([filePath])
+          }
+        } catch (e) {
+          console.error('Failed to remove from storage', e)
         }
       }
 
