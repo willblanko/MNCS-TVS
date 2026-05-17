@@ -13,8 +13,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Trash2, GripVertical, Plus } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
+import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
+import { extractFieldErrors } from '@/lib/pocketbase/errors'
 import type { PlaylistData } from '@/pages/Playlists'
 
 interface Props {
@@ -25,10 +27,12 @@ interface Props {
 }
 
 export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: Props) {
+  const { user } = useAuth()
   const [name, setName] = useState('')
   const [items, setItems] = useState<PlaylistData['items']>([])
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<any>({})
   const { toast } = useToast()
 
   useEffect(() => {
@@ -40,70 +44,60 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         setName('Nova Playlist')
         setItems([])
       }
+      setFieldErrors({})
       fetchFiles()
     }
   }, [playlist, open])
 
   const fetchFiles = async () => {
-    const { data } = await supabase
-      .from('files')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) setFiles(data)
+    try {
+      const data = await pb.collection('files').getFullList({ sort: '-created' })
+      setFiles(data)
+    } catch {
+      /* intentionally ignored */
+    }
   }
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      toast({
-        title: 'Aviso',
-        description: 'O nome da playlist é obrigatório.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setLoading(true)
+    setFieldErrors({})
     try {
       let currentPlaylistId = playlist?.id
 
       if (playlist) {
-        const { error: updateError } = await supabase
-          .from('playlists')
-          .update({ name })
-          .eq('id', playlist.id)
-        if (updateError) throw updateError
-
-        const { error: deleteError } = await supabase
-          .from('playlist_items')
-          .delete()
-          .eq('playlist_id', playlist.id)
-        if (deleteError) throw deleteError
+        await pb.collection('playlists').update(playlist.id, { name })
+        const oldItems = await pb
+          .collection('playlist_items')
+          .getFullList({ filter: `playlist='${playlist.id}'` })
+        for (const item of oldItems) {
+          await pb.collection('playlist_items').delete(item.id)
+        }
       } else {
-        const { data, error: insertError } = await supabase
-          .from('playlists')
-          .insert({ name })
-          .select()
-          .single()
-        if (insertError) throw insertError
-        if (data) currentPlaylistId = data.id
+        const data = await pb.collection('playlists').create({ name, user: user?.id })
+        currentPlaylistId = data.id
       }
 
       if (currentPlaylistId && items.length > 0) {
-        const insertItems = items.map((item, index) => ({
-          playlist_id: currentPlaylistId,
-          file_id: item.fileId,
-          order: index,
-          duration: item.duration,
-        }))
-        const { error: itemsError } = await supabase.from('playlist_items').insert(insertItems)
-        if (itemsError) throw itemsError
+        for (let i = 0; i < items.length; i++) {
+          await pb.collection('playlist_items').create({
+            playlist: currentPlaylistId,
+            file: items[i].fileId,
+            sort_order: i,
+            duration: items[i].duration,
+          })
+        }
       }
 
       onSaveSuccess()
       onOpenChange(false)
       toast({ title: 'Sucesso', description: 'Playlist salva com sucesso!' })
     } catch (err: any) {
-      toast({ title: 'Erro', description: err.message, variant: 'destructive' })
+      setFieldErrors(extractFieldErrors(err))
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível salvar a playlist',
+        variant: 'destructive',
+      })
     } finally {
       setLoading(false)
     }
@@ -135,10 +129,10 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
           <div className="space-y-2 shrink-0">
             <Label>Nome da Playlist</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
+            {fieldErrors.name && <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 flex-1 overflow-hidden min-h-0">
-            {/* Left side: Available files from library */}
             <div className="flex-1 flex flex-col gap-2 overflow-hidden w-full sm:w-1/2 min-w-0">
               <Label>Biblioteca de Mídias</Label>
               <ScrollArea className="flex-1 border rounded-md p-2 bg-muted/10">
@@ -174,7 +168,6 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
               </ScrollArea>
             </div>
 
-            {/* Right side: Current playlist items */}
             <div className="flex-1 flex flex-col gap-2 overflow-hidden w-full sm:w-1/2 min-w-0">
               <Label>Itens na Playlist</Label>
               <ScrollArea className="flex-1 border rounded-md p-2">

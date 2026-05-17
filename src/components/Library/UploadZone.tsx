@@ -1,18 +1,19 @@
 import { useState, useCallback, useRef } from 'react'
 import { UploadCloud } from 'lucide-react'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/hooks/use-auth'
 
 export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const { toast } = useToast()
+  const { user } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       await uploadFile(e.dataTransfer.files[0])
     }
@@ -42,15 +43,11 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
     const resourceType = isVideo ? 'video' : 'image'
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/djr83woxh/${resourceType}/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      },
+      { method: 'POST', body: formData },
     )
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}))
-      console.error('Cloudinary Upload Error:', err)
       throw new Error(err?.error?.message || 'Falha ao fazer upload para o Cloudinary')
     }
 
@@ -78,27 +75,23 @@ export function UploadZone({ onUploadSuccess }: { onUploadSuccess?: () => void }
 
       let thumbnailUrl = fileUrl
       if (isVideo) {
-        // Substituir a extensão por .jpg para pegar a miniatura do vídeo via Cloudinary
         thumbnailUrl = fileUrl.replace(/\.[^/.]+$/, '.jpg')
       } else {
-        // Para imagens, usa as transformações do cloudinary para reduzir o tamanho da miniatura
         const urlParts = fileUrl.split('/upload/')
         if (urlParts.length === 2) {
           thumbnailUrl = `${urlParts[0]}/upload/c_scale,w_800/${urlParts[1]}`
         }
       }
 
-      const { error: dbError } = await supabase.from('files').insert({
+      await pb.collection('files').create({
         name: file.name,
         url: fileUrl,
         thumbnail: thumbnailUrl,
         type: type,
-        original_size: file.size,
-        optimized_size: cloudData.bytes || file.size,
-        status: 'ready',
+        size: cloudData.bytes || file.size,
+        duration: 0,
+        user: user?.id,
       })
-
-      if (dbError) throw dbError
 
       toast({ title: 'Upload concluído!', description: 'O arquivo foi salvo na biblioteca.' })
       if (onUploadSuccess) onUploadSuccess()

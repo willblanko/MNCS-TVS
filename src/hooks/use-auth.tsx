@@ -1,15 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
 
 interface AuthContextType {
-  user: User | null
-  session: Session | null
+  user: any
+  isAuthenticated: boolean
   signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
-  signOut: () => Promise<{ error: any }>
-  updateProfile: (updates: { name?: string; avatar_url?: string }) => Promise<{ error: any }>
-  updatePassword: (currentPassword: string, newPassword: string) => Promise<{ error: any }>
+  signOut: () => void
   loading: boolean
 }
 
@@ -22,86 +19,55 @@ export const useAuth = () => {
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<any>(pb.authStore.isValid ? pb.authStore.record : null)
+  const [isAuthenticated, setIsAuthenticated] = useState(pb.authStore.isValid)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
+    const unsubscribe = pb.authStore.onChange((_token, record) => {
+      setUser(pb.authStore.isValid ? record : null)
+      setIsAuthenticated(pb.authStore.isValid)
     })
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
+
+    if (pb.authStore.isValid) {
+      pb.collection('users')
+        .authRefresh()
+        .catch(() => pb.authStore.clear())
+        .finally(() => setLoading(false))
+    } else {
+      if (pb.authStore.record) pb.authStore.clear()
       setLoading(false)
-    })
-    return () => subscription.unsubscribe()
+    }
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: `${window.location.origin}/` },
-    })
-    return { error }
+    try {
+      await pb.collection('users').create({ email, password, passwordConfirm: password })
+      await pb.collection('users').authWithPassword(email, password)
+      return { error: null }
+    } catch (error) {
+      return { error }
+    }
   }
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
-  }
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    return { error }
-  }
-
-  const updateProfile = async (updates: { name?: string; avatar_url?: string }) => {
-    const { error } = await supabase.auth.updateUser({
-      data: updates,
-    })
-
-    if (error) return { error }
-
-    if (user) {
-      const { error: dbError } = await supabase.from('profiles').update(updates).eq('id', user.id)
-
-      if (dbError) console.error('Error updating profile in DB:', dbError)
+    try {
+      await pb.collection('users').authWithPassword(email, password)
+      return { error: null }
+    } catch (error) {
+      return { error }
     }
-
-    return { error: null }
   }
 
-  const updatePassword = async (currentPassword: string, newPassword: string) => {
-    if (!user?.email) return { error: new Error('Usuário sem e-mail definido.') }
-
-    // Valida a senha atual antes de permitir a alteração
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: user.email,
-      password: currentPassword,
-    })
-
-    if (signInError) {
-      return { error: new Error('A senha atual está incorreta.') }
-    }
-
-    // Atualiza para a nova senha
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    })
-
-    return { error: updateError }
+  const signOut = () => {
+    pb.authStore.clear()
   }
 
   return (
-    <AuthContext.Provider
-      value={{ user, session, signUp, signIn, signOut, updateProfile, updatePassword, loading }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated, signUp, signIn, signOut, loading }}>
       {children}
     </AuthContext.Provider>
   )

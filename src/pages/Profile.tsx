@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/use-auth'
+import pb from '@/lib/pocketbase/client'
 import {
   Card,
   CardContent,
@@ -16,10 +17,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { useTheme } from '@/components/theme-provider'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/lib/supabase/client'
+import { extractFieldErrors } from '@/lib/pocketbase/errors'
 
 export default function Profile() {
-  const { user, updateProfile, updatePassword } = useAuth()
+  const { user } = useAuth()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
@@ -32,13 +33,16 @@ export default function Profile() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<any>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (user?.user_metadata) {
-      setName(user.user_metadata.name || '')
-      setAvatarUrl(user.user_metadata.avatar_url || '')
+    if (user) {
+      setName(user.name || '')
+      if (user.avatar) {
+        setAvatarUrl(pb.files.getURL(user, user.avatar))
+      }
     }
   }, [user])
 
@@ -49,14 +53,14 @@ export default function Profile() {
     }
 
     setIsSaving(true)
-    const { error } = await updateProfile({ name })
-
-    if (error) {
-      toast({ title: 'Erro ao salvar perfil', description: error.message, variant: 'destructive' })
-    } else {
+    try {
+      await pb.collection('users').update(user.id, { name })
       toast({ title: 'Perfil atualizado com sucesso!' })
+    } catch (error: any) {
+      toast({ title: 'Erro ao salvar perfil', description: error.message, variant: 'destructive' })
+    } finally {
+      setIsSaving(false)
     }
-    setIsSaving(false)
   }
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,17 +69,15 @@ export default function Profile() {
 
       setIsUploading(true)
       const file = event.target.files[0]
-      const fileExt = file.name.split('.').pop()
-      const filePath = `${user?.id}-${Math.random()}.${fileExt}`
 
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file)
+      const formData = new FormData()
+      formData.append('avatar', file)
 
-      if (uploadError) throw uploadError
+      const updatedUser = await pb.collection('users').update(user.id, formData)
 
-      const { data } = supabase.storage.from('avatars').getPublicUrl(filePath)
-
-      setAvatarUrl(data.publicUrl)
-      await updateProfile({ avatar_url: data.publicUrl })
+      if (updatedUser.avatar) {
+        setAvatarUrl(pb.files.getURL(updatedUser, updatedUser.avatar))
+      }
 
       toast({ title: 'Foto atualizada com sucesso!' })
     } catch (error: any) {
@@ -90,8 +92,8 @@ export default function Profile() {
       toast({ title: 'Informe a senha atual', variant: 'destructive' })
       return
     }
-    if (newPassword.length < 6) {
-      toast({ title: 'A nova senha deve ter no mínimo 6 caracteres', variant: 'destructive' })
+    if (newPassword.length < 8) {
+      toast({ title: 'A nova senha deve ter no mínimo 8 caracteres', variant: 'destructive' })
       return
     }
     if (newPassword !== confirmPassword) {
@@ -100,17 +102,23 @@ export default function Profile() {
     }
 
     setIsChangingPassword(true)
-    const { error } = await updatePassword(currentPassword, newPassword)
-
-    if (error) {
-      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
-    } else {
+    setFieldErrors({})
+    try {
+      await pb.collection('users').update(user.id, {
+        oldPassword: currentPassword,
+        password: newPassword,
+        passwordConfirm: confirmPassword,
+      })
       toast({ title: 'Senha alterada com sucesso!' })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+    } catch (error: any) {
+      setFieldErrors(extractFieldErrors(error))
+      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
+    } finally {
+      setIsChangingPassword(false)
     }
-    setIsChangingPassword(false)
   }
 
   const isDark =
@@ -205,6 +213,9 @@ export default function Profile() {
               placeholder="Sua senha atual"
               className="max-w-md"
             />
+            {fieldErrors.oldPassword && (
+              <p className="text-sm text-red-500 mt-1">{fieldErrors.oldPassword}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="newPassword">Nova Senha</Label>
@@ -216,6 +227,9 @@ export default function Profile() {
               placeholder="Sua nova senha"
               className="max-w-md"
             />
+            {fieldErrors.password && (
+              <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirmar Nova Senha</Label>
@@ -227,6 +241,9 @@ export default function Profile() {
               placeholder="Confirme a nova senha"
               className="max-w-md"
             />
+            {fieldErrors.passwordConfirm && (
+              <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex justify-end border-t p-6">

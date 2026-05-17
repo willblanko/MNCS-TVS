@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import pb from '@/lib/pocketbase/client'
 import { TVRow } from '@/components/TVs/TVRow'
 import {
   Table,
@@ -20,109 +21,89 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  getTVs,
-  addTV as addSupabaseTV,
-  removeTV as removeSupabaseTV,
-  updateTV as updateSupabaseTV,
-  SupabaseTV,
-} from '@/services/tvs'
-import { supabase } from '@/lib/supabase/client'
+import { useRealtime } from '@/hooks/use-realtime'
+import { useAuth } from '@/hooks/use-auth'
+import { extractFieldErrors } from '@/lib/pocketbase/errors'
 
 export default function TVs() {
-  const [playlists, setPlaylists] = useState<{ id: string; name: string }[]>([])
-  const [tvs, setTvs] = useState<SupabaseTV[]>([])
+  const { user } = useAuth()
+  const [playlists, setPlaylists] = useState<any[]>([])
+  const [tvs, setTvs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newTvName, setNewTvName] = useState('')
-  const [newTvLocation, setNewTvLocation] = useState('')
-
-  useEffect(() => {
-    fetchTVs()
-    fetchPlaylists()
-
-    const subTvs = supabase
-      .channel('tvs-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'tvs' }, () => {
-        fetchTVs()
-      })
-      .subscribe()
-
-    const subPlaylists = supabase
-      .channel('playlists-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'playlists' }, () => {
-        fetchPlaylists()
-      })
-      .subscribe()
-
-    return () => {
-      subTvs.unsubscribe()
-      subPlaylists.unsubscribe()
-    }
-  }, [])
+  const [newTvCode, setNewTvCode] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<any>({})
 
   const fetchTVs = async () => {
-    const { data } = await getTVs()
-    if (data) {
+    try {
+      const data = await pb.collection('tvs').getFullList({ sort: 'created' })
       setTvs(data)
+    } catch {
+      /* intentionally ignored */
     }
     setLoading(false)
   }
 
   const fetchPlaylists = async () => {
-    const { data } = await supabase
-      .from('playlists')
-      .select('id, name')
-      .order('name', { ascending: true })
-    if (data) {
+    try {
+      const data = await pb.collection('playlists').getFullList({ sort: 'name' })
       setPlaylists(data)
+    } catch {
+      /* intentionally ignored */
     }
   }
+
+  useEffect(() => {
+    fetchTVs()
+    fetchPlaylists()
+  }, [])
+
+  useRealtime('tvs', () => {
+    fetchTVs()
+  })
+  useRealtime('playlists', () => {
+    fetchPlaylists()
+  })
 
   const handleAddTV = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFieldErrors({})
 
-    if (!newTvName) return
+    try {
+      let code = newTvCode || newTvName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      if (!code) code = Math.random().toString(36).substring(7)
 
-    let baseId = newTvName
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '')
+      await pb.collection('tvs').create({
+        name: newTvName,
+        code: code,
+        status: 'offline',
+        user: user?.id,
+      })
 
-    if (!baseId) {
-      baseId = Math.random().toString(36).substring(7)
+      setIsAddDialogOpen(false)
+      setNewTvName('')
+      setNewTvCode('')
+    } catch (err: any) {
+      setFieldErrors(extractFieldErrors(err))
     }
-
-    const existing = tvs.find((t) => t.id === baseId)
-    const finalId = existing ? `${baseId}-${Math.random().toString(36).substring(7)}` : baseId
-
-    const newTV: SupabaseTV = {
-      id: finalId,
-      name: newTvName,
-      location: newTvLocation || 'Não especificado',
-      status: 'offline',
-      playlist_id: null,
-    }
-
-    setTvs((prev) => [...prev, newTV])
-    await addSupabaseTV(newTV)
-
-    setIsAddDialogOpen(false)
-    setNewTvName('')
-    setNewTvLocation('')
   }
 
-  const handleUpdateTV = async (id: string, updates: Partial<SupabaseTV>) => {
-    setTvs((prev) => prev.map((tv) => (tv.id === id ? { ...tv, ...updates } : tv)))
-    await updateSupabaseTV(id, updates)
+  const handleUpdateTV = async (id: string, updates: any) => {
+    try {
+      await pb.collection('tvs').update(id, updates)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const handleRemoveTV = async (id: string) => {
-    setTvs((prev) => prev.filter((tv) => tv.id !== id))
-    await removeSupabaseTV(id)
+    try {
+      await pb.collection('tvs').delete(id)
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   return (
@@ -142,9 +123,7 @@ export default function TVs() {
           <form onSubmit={handleAddTV}>
             <DialogHeader>
               <DialogTitle>Adicionar Nova TV</DialogTitle>
-              <DialogDescription>
-                Informe o nome da TV. A URL do player será gerada com base neste nome.
-              </DialogDescription>
+              <DialogDescription>Informe o nome e o código de acesso para a TV.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
@@ -156,15 +135,24 @@ export default function TVs() {
                   placeholder="Ex: Recepção, Refeitório..."
                   required
                 />
+                {fieldErrors.name && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
+                )}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="location">Localização (Opcional)</Label>
+                <Label htmlFor="code">Código de Acesso (Opcional)</Label>
                 <Input
-                  id="location"
-                  value={newTvLocation}
-                  onChange={(e) => setNewTvLocation(e.target.value)}
-                  placeholder="Ex: Térreo, Prédio B..."
+                  id="code"
+                  value={newTvCode}
+                  onChange={(e) => setNewTvCode(e.target.value)}
+                  placeholder="Ex: recepcao-1"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Será gerado automaticamente se vazio.
+                </p>
+                {fieldErrors.code && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.code}</p>
+                )}
               </div>
             </div>
             <DialogFooter>

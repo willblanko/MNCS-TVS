@@ -10,19 +10,18 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
 import { ExternalLink, Copy, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
-import { SupabaseTV } from '@/services/tvs'
 
 interface TVRowProps {
-  tv: SupabaseTV
+  tv: any
   playlists: { id: string; name: string }[]
-  onUpdate: (id: string, updates: Partial<SupabaseTV>) => void
+  onUpdate: (id: string, updates: any) => void
   onRemove: (id: string) => void
 }
 
 export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
   const [copied, setCopied] = useState(false)
 
-  const playerUrl = `${window.location.origin}/player/${tv.id}`
+  const playerUrl = `${window.location.origin}/player/${tv.code}`
 
   const copyUrl = () => {
     navigator.clipboard.writeText(playerUrl)
@@ -34,7 +33,7 @@ export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
     <TableRow>
       <TableCell className="font-medium">
         <div className="text-base">{tv.name}</div>
-        <div className="text-xs text-muted-foreground">{tv.location}</div>
+        <div className="text-xs text-muted-foreground">Código: {tv.code}</div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
@@ -57,8 +56,10 @@ export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
       </TableCell>
       <TableCell>
         <Select
-          value={tv.playlist_id || 'none'}
-          onValueChange={(val) => onUpdate(tv.id, { playlist_id: val === 'none' ? null : val })}
+          value={tv.current_playlist || 'none'}
+          onValueChange={(val) =>
+            onUpdate(tv.id, { current_playlist: val === 'none' ? null : val })
+          }
         >
           <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm">
             <SelectValue placeholder="Sem Playlist" />
@@ -84,7 +85,7 @@ export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
           </Button>
           <Button variant="secondary" size="sm" asChild className="h-9">
             <a
-              href={`/player/${tv.id}`}
+              href={`/player/${tv.code}`}
               target="_blank"
               rel="noopener noreferrer"
               title="Abrir Player"

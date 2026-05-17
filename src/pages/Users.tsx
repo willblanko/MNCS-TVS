@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import pb from '@/lib/pocketbase/client'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { extractFieldErrors } from '@/lib/pocketbase/errors'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -50,17 +51,19 @@ export default function UsersPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   const [selectedUser, setSelectedUser] = useState<any>(null)
+  const [fieldErrors, setFieldErrors] = useState<any>({})
 
   const [formData, setFormData] = useState({ name: '', email: '', password: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const fetchUsers = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) setUsers(data)
+    try {
+      const data = await pb.collection('users').getFullList({ sort: '-created' })
+      setUsers(data)
+    } catch {
+      /* intentionally ignored */
+    }
     setLoading(false)
   }
 
@@ -68,70 +71,76 @@ export default function UsersPage() {
     fetchUsers()
   }, [])
 
-  const handleAction = async (actionType: 'create' | 'update' | 'delete', extraData = {}) => {
-    setIsSubmitting(true)
-    const { error } = await supabase.functions.invoke('manage-users', {
-      body: { action: actionType, ...extraData },
-    })
-    setIsSubmitting(false)
-    return error
-  }
-
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
-    const err = await handleAction('create', formData)
-    if (err)
-      return toast({
-        title: 'Erro',
-        description: 'Falha ao criar usuário.',
-        variant: 'destructive',
+    setIsSubmitting(true)
+    setFieldErrors({})
+    try {
+      await pb.collection('users').create({
+        email: formData.email,
+        password: formData.password,
+        passwordConfirm: formData.password,
+        name: formData.name,
       })
-    toast({ title: 'Sucesso', description: 'Usuário criado!' })
-    setIsAddOpen(false)
-    fetchUsers()
+      toast({ title: 'Sucesso', description: 'Usuário criado!' })
+      setIsAddOpen(false)
+      fetchUsers()
+    } catch (err: any) {
+      setFieldErrors(extractFieldErrors(err))
+      toast({ title: 'Erro', description: 'Falha ao criar usuário.', variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const err = await handleAction('update', { userId: selectedUser.id, name: formData.name })
-    if (err)
-      return toast({
-        title: 'Erro',
-        description: 'Falha ao atualizar usuário.',
-        variant: 'destructive',
-      })
-    toast({ title: 'Sucesso', description: 'Usuário atualizado!' })
-    setIsEditOpen(false)
-    fetchUsers()
+    setIsSubmitting(true)
+    setFieldErrors({})
+    try {
+      await pb.collection('users').update(selectedUser.id, { name: formData.name })
+      toast({ title: 'Sucesso', description: 'Usuário atualizado!' })
+      setIsEditOpen(false)
+      fetchUsers()
+    } catch (err: any) {
+      setFieldErrors(extractFieldErrors(err))
+      toast({ title: 'Erro', description: 'Falha ao atualizar usuário.', variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handlePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    const err = await handleAction('update', {
-      userId: selectedUser.id,
-      password: formData.password,
-    })
-    if (err)
-      return toast({
-        title: 'Erro',
-        description: 'Falha ao alterar senha.',
-        variant: 'destructive',
+    setIsSubmitting(true)
+    setFieldErrors({})
+    try {
+      await pb.collection('users').update(selectedUser.id, {
+        password: formData.password,
+        passwordConfirm: formData.password,
       })
-    toast({ title: 'Sucesso', description: 'Senha atualizada!' })
-    setIsPasswordOpen(false)
+      toast({ title: 'Sucesso', description: 'Senha atualizada!' })
+      setIsPasswordOpen(false)
+    } catch (err: any) {
+      setFieldErrors(extractFieldErrors(err))
+      toast({ title: 'Erro', description: 'Falha ao alterar senha.', variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleDelete = async () => {
-    const err = await handleAction('delete', { userId: selectedUser.id })
-    if (err)
-      return toast({
-        title: 'Erro',
-        description: 'Falha ao remover usuário.',
-        variant: 'destructive',
-      })
-    toast({ title: 'Sucesso', description: 'Usuário removido!' })
-    setIsDeleteOpen(false)
-    fetchUsers()
+    setIsSubmitting(true)
+    try {
+      await pb.collection('users').delete(selectedUser.id)
+      toast({ title: 'Sucesso', description: 'Usuário removido!' })
+      setIsDeleteOpen(false)
+      fetchUsers()
+    } catch (err: any) {
+      toast({ title: 'Erro', description: 'Falha ao remover usuário.', variant: 'destructive' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -141,6 +150,7 @@ export default function UsersPage() {
         <Button
           onClick={() => {
             setFormData({ name: '', email: '', password: '' })
+            setFieldErrors({})
             setIsAddOpen(true)
           }}
         >
@@ -151,6 +161,10 @@ export default function UsersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Usuários do Sistema</CardTitle>
+          <CardDescription>
+            Devido as regras de isolamento, você só poderá ver as suas próprias informações por
+            aqui.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -181,7 +195,7 @@ export default function UsersPage() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>{user.name || '---'}</TableCell>
-                    <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(user.created).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Badge className="bg-emerald-500 hover:bg-emerald-600 border-0">Ativo</Badge>
                     </TableCell>
@@ -202,6 +216,7 @@ export default function UsersPage() {
                                 email: user.email,
                                 password: '',
                               })
+                              setFieldErrors({})
                               setIsEditOpen(true)
                             }}
                           >
@@ -211,6 +226,7 @@ export default function UsersPage() {
                             onClick={() => {
                               setSelectedUser(user)
                               setFormData({ name: '', email: '', password: '' })
+                              setFieldErrors({})
                               setIsPasswordOpen(true)
                             }}
                           >
@@ -250,6 +266,9 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
+                {fieldErrors.name && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -259,6 +278,9 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
+                {fieldErrors.email && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.email}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Senha</Label>
@@ -267,8 +289,11 @@ export default function UsersPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
-                  minLength={6}
+                  minLength={8}
                 />
+                {fieldErrors.password && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
+                )}
               </div>
             </div>
             <DialogFooter>
@@ -297,6 +322,9 @@ export default function UsersPage() {
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
                 />
+                {fieldErrors.name && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -333,8 +361,11 @@ export default function UsersPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
-                  minLength={6}
+                  minLength={8}
                 />
+                {fieldErrors.password && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
+                )}
               </div>
             </div>
             <DialogFooter>

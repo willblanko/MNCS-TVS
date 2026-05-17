@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { AlertCircle, MonitorOff, VolumeX } from 'lucide-react'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
+import { useRealtime } from '@/hooks/use-realtime'
 
 export default function Player() {
   const { tvId } = useParams()
@@ -13,84 +14,34 @@ export default function Player() {
   const [isMuted, setIsMuted] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
 
-  useEffect(() => {
-    if (!tvId) return
-
-    const fetchTV = async () => {
-      const { data: tv } = await supabase.from('tvs').select('*').eq('id', tvId).single()
-      if (tv) {
-        setCurrentTV(tv)
-        if (tv.playlist_id) {
-          await fetchPlaylistItems(tv.playlist_id)
-        }
-      }
+  const fetchData = async () => {
+    try {
+      const res = await pb.send(`/backend/v1/player/${tvId}`, { method: 'GET' })
+      setCurrentTV(res.tv)
+      setPlaylistItems(res.items || [])
+    } catch (err) {
+      console.error('Player fetch error:', err)
+    } finally {
       setLoading(false)
     }
+  }
 
-    const fetchPlaylistItems = async (playlistId: string) => {
-      const { data: items } = await supabase
-        .from('playlist_items')
-        .select(`
-          id,
-          order,
-          duration,
-          file:files (
-            id,
-            url,
-            type
-          )
-        `)
-        .eq('playlist_id', playlistId)
-        .order('order', { ascending: true })
+  useEffect(() => {
+    if (!tvId) return
+    fetchData()
+    const interval = setInterval(fetchData, 30000)
+    return () => clearInterval(interval)
+  }, [tvId])
 
-      if (items) {
-        const validItems = items.filter((item) => {
-          const f = Array.isArray(item.file) ? item.file[0] : item.file
-          return !!f
-        })
-        setPlaylistItems(validItems)
-      }
+  useRealtime('tvs', (e) => {
+    if (e.action === 'update' && e.record.code === tvId) {
+      fetchData()
     }
+  })
 
-    fetchTV()
-
-    const subTV = supabase
-      .channel(`tv-${tvId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'tvs', filter: `id=eq.${tvId}` },
-        (payload) => {
-          if (payload.new) {
-            setCurrentTV(payload.new)
-            if (payload.new.playlist_id && payload.new.playlist_id !== currentTV?.playlist_id) {
-              fetchPlaylistItems(payload.new.playlist_id)
-              setCurrentIndex(0)
-            } else if (!payload.new.playlist_id) {
-              setPlaylistItems([])
-            }
-          }
-        },
-      )
-      .subscribe()
-
-    const subItems = supabase
-      .channel(`items-${tvId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'playlist_items' },
-        (payload) => {
-          if (currentTV?.playlist_id) {
-            fetchPlaylistItems(currentTV.playlist_id)
-          }
-        },
-      )
-      .subscribe()
-
-    return () => {
-      subTV.unsubscribe()
-      subItems.unsubscribe()
-    }
-  }, [tvId, currentTV?.playlist_id])
+  useRealtime('playlists', () => {
+    fetchData()
+  })
 
   useEffect(() => {
     if (playlistItems.length > 0 && currentIndex >= playlistItems.length) {
@@ -99,7 +50,7 @@ export default function Player() {
   }, [playlistItems.length, currentIndex])
 
   const currentItem = playlistItems[currentIndex]
-  const currentFile = Array.isArray(currentItem?.file) ? currentItem.file[0] : currentItem?.file
+  const currentFile = currentItem?.file
 
   useEffect(() => {
     if (!currentFile || !currentItem || playlistItems.length <= 1) return

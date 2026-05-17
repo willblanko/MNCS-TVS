@@ -15,12 +15,11 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Button } from './components/ui/button'
 import { Input } from './components/ui/input'
 import { useState } from 'react'
-import { LogIn } from 'lucide-react'
 import logoBlack from './assets/meida-icon-black-1f9f5.png'
 import logoWhite from './assets/meida-icon-white-a3ca9.png'
 
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading, signIn } = useAuth()
+  const { isAuthenticated, loading, signIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -31,7 +30,7 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
       </div>
     )
 
-  if (!user) {
+  if (!isAuthenticated) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900">
         <div className="w-full max-w-sm p-8 bg-card rounded-xl shadow-lg border">

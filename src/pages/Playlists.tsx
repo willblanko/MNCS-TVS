@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
+import { useRealtime } from '@/hooks/use-realtime'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Clock, Film, MoreVertical, Plus, Trash2, Edit2 } from 'lucide-react'
@@ -29,30 +30,41 @@ export default function Playlists() {
   const [editingPlaylist, setEditingPlaylist] = useState<PlaylistData | null>(null)
 
   const fetchData = async () => {
-    const { data: filesData } = await supabase.from('files').select('*')
-    if (filesData) setFiles(filesData)
+    try {
+      const filesData = await pb.collection('files').getFullList()
+      setFiles(filesData)
 
-    const { data: playlistsData } = await supabase.from('playlists').select('*, playlist_items(*)')
-    if (playlistsData) {
+      const playlistsData = await pb.collection('playlists').getFullList()
+      const itemsData = await pb.collection('playlist_items').getFullList({ sort: 'sort_order' })
+
       const mappedPlaylists = playlistsData.map((p) => ({
         id: p.id,
         name: p.name,
-        items: (p.playlist_items || [])
-          .sort((a: any, b: any) => a.order - b.order)
-          .map((i: any) => ({
+        items: itemsData
+          .filter((i) => i.playlist === p.id)
+          .map((i) => ({
             id: i.id,
-            fileId: i.file_id,
+            fileId: i.file,
             duration: i.duration || 15,
-            order: i.order,
+            order: i.sort_order,
           })),
       }))
       setPlaylists(mappedPlaylists)
+    } catch (err) {
+      console.error(err)
     }
   }
 
   useEffect(() => {
     fetchData()
   }, [])
+
+  useRealtime('playlists', () => {
+    fetchData()
+  })
+  useRealtime('playlist_items', () => {
+    fetchData()
+  })
 
   const handleEdit = (playlist: PlaylistData) => {
     setEditingPlaylist(playlist)
@@ -65,8 +77,12 @@ export default function Playlists() {
   }
 
   const removePlaylist = async (id: string) => {
-    await supabase.from('playlists').delete().eq('id', id)
-    fetchData()
+    try {
+      await pb.collection('playlists').delete(id)
+      fetchData()
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   const getPlaylistDuration = (playlist: PlaylistData) => {

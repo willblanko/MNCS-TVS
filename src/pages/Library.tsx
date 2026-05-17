@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase/client'
+import pb from '@/lib/pocketbase/client'
 import { UploadZone } from '@/components/Library/UploadZone'
 import { MediaCard } from '@/components/Library/MediaCard'
 import { Input } from '@/components/ui/input'
@@ -18,18 +18,11 @@ export default function Library() {
   const [filterType, setFilterType] = useState('all')
 
   const fetchFiles = async () => {
-    const { data } = await supabase
-      .from('files')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (data) {
-      const mapped = data.map((f) => ({
-        ...f,
-        originalSize: f.original_size,
-        optimizedSize: f.optimized_size,
-        createdAt: new Date(f.created_at).getTime(),
-      }))
-      setFiles(mapped)
+    try {
+      const data = await pb.collection('files').getFullList({ sort: '-created' })
+      setFiles(data)
+    } catch (err) {
+      console.error(err)
     }
   }
 
