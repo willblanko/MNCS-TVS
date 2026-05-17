@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import pb from '@/lib/pocketbase/client'
+import { useRealtime } from '@/hooks/use-realtime'
 import { UploadZone } from '@/components/Library/UploadZone'
 import { MediaCard } from '@/components/Library/MediaCard'
 import { Input } from '@/components/ui/input'
@@ -29,6 +30,10 @@ export default function Library() {
   useEffect(() => {
     fetchFiles()
   }, [])
+
+  useRealtime('files', () => {
+    fetchFiles()
+  })
 
   const filteredFiles = files.filter((f) => {
     if (filterType !== 'all' && f.type !== filterType) return false
@@ -76,7 +81,10 @@ export default function Library() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12 text-muted-foreground">Nenhum arquivo encontrado.</div>
+        <div className="text-center py-12 flex flex-col items-center justify-center space-y-3 text-muted-foreground border rounded-lg border-dashed">
+          <p>Nenhum arquivo encontrado.</p>
+          <p className="text-sm">Use a área de upload acima para adicionar novas mídias.</p>
+        </div>
       )}
     </div>
   )

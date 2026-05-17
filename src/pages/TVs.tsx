@@ -188,7 +188,12 @@ export default function TVs() {
             {!loading && tvs.length === 0 && (
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
-                  Nenhuma TV registrada.
+                  <div className="flex flex-col items-center justify-center space-y-3">
+                    <p>Nenhuma TV encontrada.</p>
+                    <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" /> Adicionar Primeira TV
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

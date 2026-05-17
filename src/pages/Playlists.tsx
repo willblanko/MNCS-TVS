@@ -170,8 +170,11 @@ export default function Playlists() {
           </Card>
         ))}
         {playlists.length === 0 && (
-          <div className="col-span-full py-12 text-center text-muted-foreground border rounded-lg border-dashed">
-            Nenhuma playlist encontrada. Crie sua primeira playlist!
+          <div className="col-span-full py-12 flex flex-col items-center justify-center space-y-4 text-center text-muted-foreground border rounded-lg border-dashed">
+            <p>Nenhuma playlist encontrada. Crie sua primeira playlist!</p>
+            <Button onClick={handleCreate} variant="outline">
+              <Plus className="mr-2 h-4 w-4" /> Nova Playlist
+            </Button>
           </div>
         )}
       </div>
