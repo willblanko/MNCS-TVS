@@ -4,6 +4,7 @@ import { useRealtime } from '@/hooks/use-realtime'
 import { UploadZone } from '@/components/Library/UploadZone'
 import { MediaCard } from '@/components/Library/MediaCard'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Select,
   SelectContent,
@@ -17,22 +18,26 @@ export default function Library() {
   const [files, setFiles] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('all')
+  const [isLoading, setIsLoading] = useState(true)
 
-  const fetchFiles = async () => {
+  const fetchFiles = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true)
     try {
       const data = await pb.collection('files').getFullList({ sort: '-created' })
       setFiles(data)
     } catch (err) {
       console.error(err)
+    } finally {
+      if (showLoading) setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchFiles()
+    fetchFiles(true)
   }, [])
 
   useRealtime('files', () => {
-    fetchFiles()
+    fetchFiles(false)
   })
 
   const filteredFiles = files.filter((f) => {
@@ -48,7 +53,7 @@ export default function Library() {
         <p className="text-muted-foreground">Gerencie suas mídias, vídeos e imagens.</p>
       </div>
 
-      <UploadZone onUploadSuccess={fetchFiles} />
+      <UploadZone onUploadSuccess={() => fetchFiles(false)} />
 
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between pt-4">
         <div className="relative w-full sm:max-w-sm">
@@ -74,10 +79,22 @@ export default function Library() {
         </div>
       </div>
 
-      {filteredFiles.length > 0 ? (
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex flex-col space-y-3">
+              <Skeleton className="h-[200px] w-full rounded-xl" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-[200px]" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredFiles.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredFiles.map((file) => (
-            <MediaCard key={file.id} file={file} onDeleteSuccess={fetchFiles} />
+            <MediaCard key={file.id} file={file} onDeleteSuccess={() => fetchFiles(false)} />
           ))}
         </div>
       ) : (

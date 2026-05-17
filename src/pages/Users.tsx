@@ -53,7 +53,13 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [fieldErrors, setFieldErrors] = useState<any>({})
 
-  const [formData, setFormData] = useState({ name: '', email: '', password: '' })
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    passwordConfirm: '',
+    oldPassword: '',
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const fetchUsers = async () => {
@@ -75,11 +81,18 @@ export default function UsersPage() {
     e.preventDefault()
     setIsSubmitting(true)
     setFieldErrors({})
+
+    if (formData.password !== formData.passwordConfirm) {
+      setFieldErrors({ passwordConfirm: 'As senhas não coincidem.' })
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       await pb.collection('users').create({
         email: formData.email,
         password: formData.password,
-        passwordConfirm: formData.password,
+        passwordConfirm: formData.passwordConfirm,
         name: formData.name,
       })
       toast({ title: 'Sucesso', description: 'Usuário criado!' })
@@ -114,16 +127,24 @@ export default function UsersPage() {
     e.preventDefault()
     setIsSubmitting(true)
     setFieldErrors({})
+
+    if (formData.password !== formData.passwordConfirm) {
+      setFieldErrors({ passwordConfirm: 'As senhas não coincidem.' })
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       await pb.collection('users').update(selectedUser.id, {
+        oldPassword: formData.oldPassword,
         password: formData.password,
-        passwordConfirm: formData.password,
+        passwordConfirm: formData.passwordConfirm,
       })
-      toast({ title: 'Sucesso', description: 'Senha atualizada!' })
+      toast({ title: 'Sucesso', description: 'Senha alterada com sucesso' })
       setIsPasswordOpen(false)
     } catch (err: any) {
       setFieldErrors(extractFieldErrors(err))
-      toast({ title: 'Erro', description: 'Falha ao alterar senha.', variant: 'destructive' })
+      toast({ title: 'Erro', description: 'Falha ao alterar a senha.', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
@@ -149,7 +170,7 @@ export default function UsersPage() {
         <h1 className="text-3xl font-bold tracking-tight">Gestão de Acessos</h1>
         <Button
           onClick={() => {
-            setFormData({ name: '', email: '', password: '' })
+            setFormData({ name: '', email: '', password: '', passwordConfirm: '', oldPassword: '' })
             setFieldErrors({})
             setIsAddOpen(true)
           }}
@@ -197,7 +218,9 @@ export default function UsersPage() {
                     <TableCell>{user.name || '---'}</TableCell>
                     <TableCell>{new Date(user.created).toLocaleDateString()}</TableCell>
                     <TableCell>
-                      <Badge className="bg-emerald-500 hover:bg-emerald-600 border-0">Ativo</Badge>
+                      <Badge className="bg-emerald-500 hover:bg-emerald-600 border-0 text-white">
+                        Ativo
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -215,6 +238,8 @@ export default function UsersPage() {
                                 name: user.name || '',
                                 email: user.email,
                                 password: '',
+                                passwordConfirm: '',
+                                oldPassword: '',
                               })
                               setFieldErrors({})
                               setIsEditOpen(true)
@@ -225,7 +250,13 @@ export default function UsersPage() {
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedUser(user)
-                              setFormData({ name: '', email: '', password: '' })
+                              setFormData({
+                                name: '',
+                                email: '',
+                                password: '',
+                                passwordConfirm: '',
+                                oldPassword: '',
+                              })
                               setFieldErrors({})
                               setIsPasswordOpen(true)
                             }}
@@ -295,6 +326,19 @@ export default function UsersPage() {
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
                 )}
               </div>
+              <div className="space-y-2">
+                <Label>Confirmar Senha</Label>
+                <Input
+                  type="password"
+                  value={formData.passwordConfirm}
+                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
+                  required
+                  minLength={8}
+                />
+                {fieldErrors.passwordConfirm && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
@@ -352,8 +396,20 @@ export default function UsersPage() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <p className="text-sm text-muted-foreground">
-                Nova senha para <strong>{selectedUser?.email}</strong>
+                Alterando senha para <strong>{selectedUser?.email}</strong>
               </p>
+              <div className="space-y-2">
+                <Label>Senha Atual</Label>
+                <Input
+                  type="password"
+                  value={formData.oldPassword}
+                  onChange={(e) => setFormData({ ...formData, oldPassword: e.target.value })}
+                  required
+                />
+                {fieldErrors.oldPassword && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.oldPassword}</p>
+                )}
+              </div>
               <div className="space-y-2">
                 <Label>Nova Senha</Label>
                 <Input
@@ -365,6 +421,19 @@ export default function UsersPage() {
                 />
                 {fieldErrors.password && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Confirmar Nova Senha</Label>
+                <Input
+                  type="password"
+                  value={formData.passwordConfirm}
+                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
+                  required
+                  minLength={8}
+                />
+                {fieldErrors.passwordConfirm && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
                 )}
               </div>
             </div>
