@@ -49,11 +49,13 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<any>({})
+  const [profileErrors, setProfileErrors] = useState<any>({})
 
   const [securityQuestion, setSecurityQuestion] = useState('')
   const [securityAnswer, setSecurityAnswer] = useState('')
   const [showSecurityAnswer, setShowSecurityAnswer] = useState(false)
   const [isSavingSecurity, setIsSavingSecurity] = useState(false)
+  const [securityErrors, setSecurityErrors] = useState<any>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -69,10 +71,12 @@ export default function Profile() {
   }, [user])
 
   const handleSaveProfile = async () => {
+    const errors: any = {}
     if (!name.trim()) {
-      toast({ title: 'O nome não pode estar vazio', variant: 'destructive' })
-      return
+      errors.name = 'Este campo é obrigatório'
     }
+    setProfileErrors(errors)
+    if (Object.keys(errors).length > 0) return
 
     setIsSaving(true)
     try {
@@ -110,21 +114,25 @@ export default function Profile() {
   }
 
   const handleChangePassword = async () => {
+    const errors: any = {}
     if (!currentPassword) {
-      toast({ title: 'Informe a senha atual', variant: 'destructive' })
-      return
+      errors.oldPassword = 'Este campo é obrigatório'
     }
-    if (newPassword.length < 8) {
-      toast({ title: 'A nova senha deve ter no mínimo 8 caracteres', variant: 'destructive' })
-      return
+    if (!newPassword) {
+      errors.password = 'Este campo é obrigatório'
+    } else if (newPassword.length < 8) {
+      errors.password = 'A nova senha deve ter no mínimo 8 caracteres'
     }
-    if (newPassword !== confirmPassword) {
-      toast({ title: 'As senhas não coincidem', variant: 'destructive' })
-      return
+    if (!confirmPassword) {
+      errors.passwordConfirm = 'Este campo é obrigatório'
+    } else if (newPassword !== confirmPassword) {
+      errors.passwordConfirm = 'As senhas não coincidem'
     }
 
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
     setIsChangingPassword(true)
-    setFieldErrors({})
     try {
       await pb.collection('users').update(user.id, {
         oldPassword: currentPassword,
@@ -144,10 +152,16 @@ export default function Profile() {
   }
 
   const handleSaveSecurity = async () => {
-    if (!securityQuestion || !securityAnswer) {
-      toast({ title: 'Preencha a pergunta e a resposta de segurança', variant: 'destructive' })
-      return
+    const errors: any = {}
+    if (!securityQuestion) {
+      errors.securityQuestion = 'Este campo é obrigatório'
     }
+    if (!securityAnswer.trim()) {
+      errors.securityAnswer = 'Este campo é obrigatório'
+    }
+
+    setSecurityErrors(errors)
+    if (Object.keys(errors).length > 0) return
 
     setIsSavingSecurity(true)
     try {
@@ -220,6 +234,9 @@ export default function Profile() {
                   placeholder="Seu nome"
                   className="max-w-md"
                 />
+                {profileErrors.name && (
+                  <p className="text-sm text-red-500 mt-1">{profileErrors.name}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>E-mail</Label>
@@ -326,6 +343,9 @@ export default function Profile() {
                 ))}
               </SelectContent>
             </Select>
+            {securityErrors.securityQuestion && (
+              <p className="text-sm text-red-500 mt-1">{securityErrors.securityQuestion}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label>Resposta de Segurança</Label>
@@ -345,6 +365,9 @@ export default function Profile() {
                 {showSecurityAnswer ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {securityErrors.securityAnswer && (
+              <p className="text-sm text-red-500 mt-1">{securityErrors.securityAnswer}</p>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex justify-end border-t p-6">

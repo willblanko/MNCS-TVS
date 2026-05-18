@@ -63,10 +63,21 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
         const isVideo = file.type.startsWith('video/')
         const isImage = file.type.startsWith('image/')
 
+        const fileName = file.name?.trim()
+
+        if (!fileName) {
+          toast({
+            title: 'Erro de Validação',
+            description: 'O arquivo deve ter um nome válido.',
+            variant: 'destructive',
+          })
+          continue
+        }
+
         if (!isVideo && !isImage) {
           toast({
             title: 'Formato não suportado',
-            description: `O arquivo ${file.name} não é uma imagem ou vídeo válido.`,
+            description: `O arquivo ${fileName} não é uma imagem ou vídeo válido.`,
             variant: 'destructive',
           })
           continue
@@ -90,6 +101,10 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
 
         const data = await res.json()
 
+        if (!data.secure_url) {
+          throw new Error('Falha ao obter a URL do arquivo no Cloudinary')
+        }
+
         const thumbnailUrl = isVideo
           ? data.secure_url
               .replace('/upload/', '/upload/w_300,c_fill,q_auto/')
@@ -97,7 +112,7 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
           : data.secure_url.replace('/upload/', '/upload/w_300,c_fill,q_auto/')
 
         await pb.collection('files').create({
-          name: file.name,
+          name: fileName,
           url: data.secure_url,
           thumbnail: thumbnailUrl,
           type: resourceType,

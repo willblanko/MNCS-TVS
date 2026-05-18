@@ -98,32 +98,52 @@ export default function UsersPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setFieldErrors({})
 
-    if (formData.password !== formData.passwordConfirm) {
-      setFieldErrors({ passwordConfirm: 'As senhas não coincidem.' })
-      setIsSubmitting(false)
-      return
+    let hasError = false
+    const errors: any = {}
+
+    if (!formData.name.trim()) {
+      errors.name = 'Este campo é obrigatório'
+      hasError = true
+    }
+    if (!formData.email.trim()) {
+      errors.email = 'Este campo é obrigatório'
+      hasError = true
+    }
+    if (!formData.password) {
+      errors.password = 'Este campo é obrigatório'
+      hasError = true
+    }
+    if (!formData.passwordConfirm) {
+      errors.passwordConfirm = 'Este campo é obrigatório'
+      hasError = true
+    } else if (formData.password !== formData.passwordConfirm) {
+      errors.passwordConfirm = 'As senhas não coincidem.'
+      hasError = true
     }
 
     if (!formData.security_question) {
-      setFieldErrors({ security_question: 'Selecione uma pergunta de segurança.' })
-      setIsSubmitting(false)
-      return
+      errors.security_question = 'Este campo é obrigatório'
+      hasError = true
+    }
+    if (!formData.security_answer?.trim()) {
+      errors.security_answer = 'Este campo é obrigatório'
+      hasError = true
     }
 
-    if (!formData.security_answer?.trim()) {
-      setFieldErrors({ security_answer: 'A resposta de segurança não pode ficar em branco.' })
+    setFieldErrors(errors)
+
+    if (hasError) {
       setIsSubmitting(false)
       return
     }
 
     try {
       await pb.collection('users').create({
-        email: formData.email,
+        email: formData.email.trim(),
         password: formData.password,
         passwordConfirm: formData.passwordConfirm,
-        name: formData.name,
+        name: formData.name.trim(),
         security_question: formData.security_question,
         security_answer: formData.security_answer.trim(),
       })
@@ -141,21 +161,34 @@ export default function UsersPage() {
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setFieldErrors({})
 
+    let hasError = false
+    const errors: any = {}
+
+    if (!formData.name.trim()) {
+      errors.name = 'Este campo é obrigatório'
+      hasError = true
+    }
     if (!formData.security_question) {
-      setFieldErrors({ security_question: 'Selecione uma pergunta de segurança.' })
+      errors.security_question = 'Este campo é obrigatório'
+      hasError = true
+    }
+    if (!formData.security_answer?.trim()) {
+      errors.security_answer = 'Este campo é obrigatório'
+      hasError = true
+    }
+
+    setFieldErrors(errors)
+
+    if (hasError) {
       setIsSubmitting(false)
       return
     }
 
     const payload: any = {
-      name: formData.name,
+      name: formData.name.trim(),
       security_question: formData.security_question,
-    }
-
-    if (formData.security_answer?.trim()) {
-      payload.security_answer = formData.security_answer.trim()
+      security_answer: formData.security_answer.trim(),
     }
 
     try {
@@ -174,10 +207,29 @@ export default function UsersPage() {
   const handlePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    setFieldErrors({})
 
-    if (formData.password !== formData.passwordConfirm) {
-      setFieldErrors({ passwordConfirm: 'As senhas não coincidem.' })
+    let hasError = false
+    const errors: any = {}
+
+    if (!formData.password) {
+      errors.password = 'Este campo é obrigatório'
+      hasError = true
+    } else if (formData.password.length < 8) {
+      errors.password = 'A senha deve ter no mínimo 8 caracteres'
+      hasError = true
+    }
+
+    if (!formData.passwordConfirm) {
+      errors.passwordConfirm = 'Este campo é obrigatório'
+      hasError = true
+    } else if (formData.password !== formData.passwordConfirm) {
+      errors.passwordConfirm = 'As senhas não coincidem.'
+      hasError = true
+    }
+
+    setFieldErrors(errors)
+
+    if (hasError) {
       setIsSubmitting(false)
       return
     }
@@ -298,7 +350,7 @@ export default function UsersPage() {
                                 password: '',
                                 passwordConfirm: '',
                                 security_question: user.security_question || '',
-                                security_answer: '',
+                                security_answer: user.security_answer || '',
                               })
                               setFieldErrors({})
                               setShowSecurityAnswer(false)
@@ -346,7 +398,7 @@ export default function UsersPage() {
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="max-w-md">
-          <form onSubmit={handleCreate}>
+          <form onSubmit={handleCreate} noValidate>
             <DialogHeader>
               <DialogTitle>Novo Usuário</DialogTitle>
             </DialogHeader>
@@ -356,7 +408,6 @@ export default function UsersPage() {
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
                 />
                 {fieldErrors.name && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
@@ -368,7 +419,6 @@ export default function UsersPage() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
                 />
                 {fieldErrors.email && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.email}</p>
@@ -380,8 +430,6 @@ export default function UsersPage() {
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  minLength={8}
                 />
                 {fieldErrors.password && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
@@ -393,8 +441,6 @@ export default function UsersPage() {
                   type="password"
                   value={formData.passwordConfirm}
                   onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                  required
-                  minLength={8}
                 />
                 {fieldErrors.passwordConfirm && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
@@ -434,7 +480,6 @@ export default function UsersPage() {
                         onChange={(e) =>
                           setFormData({ ...formData, security_answer: e.target.value })
                         }
-                        required
                         className="pr-10"
                       />
                       <button
@@ -470,7 +515,7 @@ export default function UsersPage() {
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
-          <form onSubmit={handleEdit}>
+          <form onSubmit={handleEdit} noValidate>
             <DialogHeader>
               <DialogTitle>Editar Usuário</DialogTitle>
             </DialogHeader>
@@ -480,7 +525,6 @@ export default function UsersPage() {
                 <Input
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
                 />
                 {fieldErrors.name && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
@@ -560,7 +604,7 @@ export default function UsersPage() {
 
       <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
         <DialogContent>
-          <form onSubmit={handlePassword}>
+          <form onSubmit={handlePassword} noValidate>
             <DialogHeader>
               <DialogTitle>Alterar Senha</DialogTitle>
             </DialogHeader>
@@ -574,8 +618,6 @@ export default function UsersPage() {
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                  minLength={8}
                 />
                 {fieldErrors.password && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
@@ -587,8 +629,6 @@ export default function UsersPage() {
                   type="password"
                   value={formData.passwordConfirm}
                   onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                  required
-                  minLength={8}
                 />
                 {fieldErrors.passwordConfirm && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
