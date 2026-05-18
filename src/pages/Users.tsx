@@ -58,7 +58,6 @@ export default function UsersPage() {
     email: '',
     password: '',
     passwordConfirm: '',
-    oldPassword: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -135,10 +134,12 @@ export default function UsersPage() {
     }
 
     try {
-      await pb.collection('users').update(selectedUser.id, {
-        oldPassword: formData.oldPassword,
-        password: formData.password,
-        passwordConfirm: formData.passwordConfirm,
+      await pb.send(`/backend/v1/users/${selectedUser.id}/password`, {
+        method: 'POST',
+        body: JSON.stringify({
+          password: formData.password,
+          passwordConfirm: formData.passwordConfirm,
+        }),
       })
       toast({ title: 'Sucesso', description: 'Senha alterada com sucesso' })
       setIsPasswordOpen(false)
@@ -170,7 +171,7 @@ export default function UsersPage() {
         <h1 className="text-3xl font-bold tracking-tight">Gestão de Acessos</h1>
         <Button
           onClick={() => {
-            setFormData({ name: '', email: '', password: '', passwordConfirm: '', oldPassword: '' })
+            setFormData({ name: '', email: '', password: '', passwordConfirm: '' })
             setFieldErrors({})
             setIsAddOpen(true)
           }}
@@ -239,7 +240,6 @@ export default function UsersPage() {
                                 email: user.email,
                                 password: '',
                                 passwordConfirm: '',
-                                oldPassword: '',
                               })
                               setFieldErrors({})
                               setIsEditOpen(true)
@@ -255,7 +255,6 @@ export default function UsersPage() {
                                 email: '',
                                 password: '',
                                 passwordConfirm: '',
-                                oldPassword: '',
                               })
                               setFieldErrors({})
                               setIsPasswordOpen(true)
@@ -399,18 +398,6 @@ export default function UsersPage() {
                 Alterando senha para <strong>{selectedUser?.email}</strong>
               </p>
               <div className="space-y-2">
-                <Label>Senha Atual</Label>
-                <Input
-                  type="password"
-                  value={formData.oldPassword}
-                  onChange={(e) => setFormData({ ...formData, oldPassword: e.target.value })}
-                  required
-                />
-                {fieldErrors.oldPassword && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.oldPassword}</p>
-                )}
-              </div>
-              <div className="space-y-2">
                 <Label>Nova Senha</Label>
                 <Input
                   type="password"
@@ -441,7 +428,15 @@ export default function UsersPage() {
               <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  !formData.password ||
+                  formData.password !== formData.passwordConfirm ||
+                  formData.password.length < 8
+                }
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Atualizar
               </Button>
             </DialogFooter>
