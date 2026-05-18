@@ -4,8 +4,8 @@ routerAdd(
   (e) => {
     const id = e.request.pathValue('id')
 
-    if (!e.auth || e.auth.id !== id) {
-      throw new ForbiddenError('Você não tem permissão para alterar a senha deste usuário.')
+    if (!e.auth) {
+      throw new ForbiddenError('Autenticação necessária.')
     }
 
     const body = e.requestInfo().body
