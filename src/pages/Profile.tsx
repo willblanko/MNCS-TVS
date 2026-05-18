@@ -10,7 +10,7 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Upload, Loader2, Moon, Sun, Save, Lock } from 'lucide-react'
+import { User, Upload, Loader2, Moon, Sun, Save, Lock, Eye, EyeOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -27,11 +27,11 @@ import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
 
 const SECURITY_QUESTIONS = [
+  'Qual o nome da sua primeira escola?',
   'Qual era o nome do seu primeiro animal de estimação?',
-  'Em qual cidade você nasceu?',
-  'Qual é o nome de solteira da sua mãe?',
-  'Qual era o nome da sua primeira escola?',
-  'Qual é o seu livro favorito?',
+  'Qual o nome da rua onde você cresceu?',
+  'Qual o nome da sua primeira professora?',
+  'Qual o nome do seu filme favorito?',
 ]
 
 export default function Profile() {
@@ -52,6 +52,7 @@ export default function Profile() {
 
   const [securityQuestion, setSecurityQuestion] = useState('')
   const [securityAnswer, setSecurityAnswer] = useState('')
+  const [showSecurityAnswer, setShowSecurityAnswer] = useState(false)
   const [isSavingSecurity, setIsSavingSecurity] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -63,6 +64,7 @@ export default function Profile() {
         setAvatarUrl(pb.files.getURL(user, user.avatar))
       }
       setSecurityQuestion(user.security_question || '')
+      setSecurityAnswer(user.security_answer || '')
     }
   }, [user])
 
@@ -154,7 +156,6 @@ export default function Profile() {
         security_answer: securityAnswer,
       })
       toast({ title: 'Segurança atualizada com sucesso!' })
-      setSecurityAnswer('')
     } catch (error: any) {
       toast({
         title: 'Erro ao atualizar segurança',
@@ -327,17 +328,23 @@ export default function Profile() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Nova Resposta</Label>
-            <Input
-              type="password"
-              value={securityAnswer}
-              onChange={(e) => setSecurityAnswer(e.target.value)}
-              placeholder="Sua resposta secreta"
-              className="max-w-md"
-            />
-            <p className="text-xs text-muted-foreground">
-              Por segurança, a resposta atual não é exibida.
-            </p>
+            <Label>Resposta de Segurança</Label>
+            <div className="relative max-w-md">
+              <Input
+                type={showSecurityAnswer ? 'text' : 'password'}
+                value={securityAnswer}
+                onChange={(e) => setSecurityAnswer(e.target.value)}
+                placeholder="Sua resposta secreta"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecurityAnswer(!showSecurityAnswer)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showSecurityAnswer ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         </CardContent>
         <CardFooter className="flex justify-end border-t p-6">
