@@ -36,9 +36,24 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
+
+const SECURITY_QUESTIONS = [
+  'Qual era o nome do seu primeiro animal de estimação?',
+  'Em qual cidade você nasceu?',
+  'Qual é o nome de solteira da sua mãe?',
+  'Qual era o nome da sua primeira escola?',
+  'Qual é o seu livro favorito?',
+]
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -58,6 +73,8 @@ export default function UsersPage() {
     email: '',
     password: '',
     passwordConfirm: '',
+    security_question: '',
+    security_answer: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -87,12 +104,20 @@ export default function UsersPage() {
       return
     }
 
+    if (!formData.security_question) {
+      setFieldErrors({ security_question: 'Selecione uma pergunta de segurança.' })
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       await pb.collection('users').create({
         email: formData.email,
         password: formData.password,
         passwordConfirm: formData.passwordConfirm,
         name: formData.name,
+        security_question: formData.security_question,
+        security_answer: formData.security_answer,
       })
       toast({ title: 'Sucesso', description: 'Usuário criado!' })
       setIsAddOpen(false)
@@ -171,7 +196,14 @@ export default function UsersPage() {
         <h1 className="text-3xl font-bold tracking-tight">Gestão de Acessos</h1>
         <Button
           onClick={() => {
-            setFormData({ name: '', email: '', password: '', passwordConfirm: '' })
+            setFormData({
+              name: '',
+              email: '',
+              password: '',
+              passwordConfirm: '',
+              security_question: '',
+              security_answer: '',
+            })
             setFieldErrors({})
             setIsAddOpen(true)
           }}
@@ -240,6 +272,8 @@ export default function UsersPage() {
                                 email: user.email,
                                 password: '',
                                 passwordConfirm: '',
+                                security_question: '',
+                                security_answer: '',
                               })
                               setFieldErrors({})
                               setIsEditOpen(true)
@@ -255,6 +289,8 @@ export default function UsersPage() {
                                 email: '',
                                 password: '',
                                 passwordConfirm: '',
+                                security_question: '',
+                                security_answer: '',
                               })
                               setFieldErrors({})
                               setIsPasswordOpen(true)
@@ -283,7 +319,7 @@ export default function UsersPage() {
       </Card>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <form onSubmit={handleCreate}>
             <DialogHeader>
               <DialogTitle>Novo Usuário</DialogTitle>
@@ -337,6 +373,47 @@ export default function UsersPage() {
                 {fieldErrors.passwordConfirm && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
                 )}
+              </div>
+
+              <div className="border-t pt-4 mt-2">
+                <h4 className="text-sm font-medium mb-3">Recuperação de Conta</h4>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Pergunta de Segurança</Label>
+                    <Select
+                      value={formData.security_question}
+                      onValueChange={(v) => setFormData({ ...formData, security_question: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma pergunta" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SECURITY_QUESTIONS.map((q) => (
+                          <SelectItem key={q} value={q}>
+                            {q}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldErrors.security_question && (
+                      <p className="text-sm text-red-500 mt-1">{fieldErrors.security_question}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Resposta de Segurança</Label>
+                    <Input
+                      type="password"
+                      value={formData.security_answer}
+                      onChange={(e) =>
+                        setFormData({ ...formData, security_answer: e.target.value })
+                      }
+                      required
+                    />
+                    {fieldErrors.security_answer && (
+                      <p className="text-sm text-red-500 mt-1">{fieldErrors.security_answer}</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
             <DialogFooter>

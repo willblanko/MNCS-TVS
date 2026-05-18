@@ -15,9 +15,24 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
+
+const SECURITY_QUESTIONS = [
+  'Qual era o nome do seu primeiro animal de estimação?',
+  'Em qual cidade você nasceu?',
+  'Qual é o nome de solteira da sua mãe?',
+  'Qual era o nome da sua primeira escola?',
+  'Qual é o seu livro favorito?',
+]
 
 export default function Profile() {
   const { user } = useAuth()
@@ -35,6 +50,10 @@ export default function Profile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<any>({})
 
+  const [securityQuestion, setSecurityQuestion] = useState('')
+  const [securityAnswer, setSecurityAnswer] = useState('')
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false)
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -43,6 +62,7 @@ export default function Profile() {
       if (user.avatar) {
         setAvatarUrl(pb.files.getURL(user, user.avatar))
       }
+      setSecurityQuestion(user.security_question || '')
     }
   }, [user])
 
@@ -118,6 +138,31 @@ export default function Profile() {
       toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
     } finally {
       setIsChangingPassword(false)
+    }
+  }
+
+  const handleSaveSecurity = async () => {
+    if (!securityQuestion || !securityAnswer) {
+      toast({ title: 'Preencha a pergunta e a resposta de segurança', variant: 'destructive' })
+      return
+    }
+
+    setIsSavingSecurity(true)
+    try {
+      await pb.collection('users').update(user.id, {
+        security_question: securityQuestion,
+        security_answer: securityAnswer,
+      })
+      toast({ title: 'Segurança atualizada com sucesso!' })
+      setSecurityAnswer('')
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao atualizar segurança',
+        description: error.message,
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingSecurity(false)
     }
   }
 
@@ -254,6 +299,59 @@ export default function Profile() {
               <Lock className="mr-2 h-4 w-4" />
             )}
             Alterar Senha
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recuperação de Conta</CardTitle>
+          <CardDescription>
+            Configure uma pergunta de segurança para recuperar sua senha caso esqueça.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Pergunta de Segurança</Label>
+            <Select value={securityQuestion} onValueChange={setSecurityQuestion}>
+              <SelectTrigger className="max-w-md">
+                <SelectValue placeholder="Selecione uma pergunta" />
+              </SelectTrigger>
+              <SelectContent>
+                {SECURITY_QUESTIONS.map((q) => (
+                  <SelectItem key={q} value={q}>
+                    {q}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Nova Resposta</Label>
+            <Input
+              type="password"
+              value={securityAnswer}
+              onChange={(e) => setSecurityAnswer(e.target.value)}
+              placeholder="Sua resposta secreta"
+              className="max-w-md"
+            />
+            <p className="text-xs text-muted-foreground">
+              Por segurança, a resposta atual não é exibida.
+            </p>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-end border-t p-6">
+          <Button
+            onClick={handleSaveSecurity}
+            disabled={isSavingSecurity || !securityQuestion || !securityAnswer}
+            variant="secondary"
+          >
+            {isSavingSecurity ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Salvar Segurança
           </Button>
         </CardFooter>
       </Card>
