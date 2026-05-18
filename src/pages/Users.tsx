@@ -112,6 +112,12 @@ export default function UsersPage() {
       return
     }
 
+    if (!formData.security_answer?.trim()) {
+      setFieldErrors({ security_answer: 'A resposta de segurança não pode ficar em branco.' })
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       await pb.collection('users').create({
         email: formData.email,
@@ -119,7 +125,7 @@ export default function UsersPage() {
         passwordConfirm: formData.passwordConfirm,
         name: formData.name,
         security_question: formData.security_question,
-        security_answer: formData.security_answer,
+        security_answer: formData.security_answer.trim(),
       })
       toast({ title: 'Sucesso', description: 'Usuário criado!' })
       setIsAddOpen(false)
@@ -136,18 +142,24 @@ export default function UsersPage() {
     e.preventDefault()
     setIsSubmitting(true)
     setFieldErrors({})
+
     if (!formData.security_question) {
       setFieldErrors({ security_question: 'Selecione uma pergunta de segurança.' })
       setIsSubmitting(false)
       return
     }
 
+    const payload: any = {
+      name: formData.name,
+      security_question: formData.security_question,
+    }
+
+    if (formData.security_answer?.trim()) {
+      payload.security_answer = formData.security_answer.trim()
+    }
+
     try {
-      await pb.collection('users').update(selectedUser.id, {
-        name: formData.name,
-        security_question: formData.security_question,
-        security_answer: formData.security_answer,
-      })
+      await pb.collection('users').update(selectedUser.id, payload)
       toast({ title: 'Sucesso', description: 'Usuário atualizado!' })
       setIsEditOpen(false)
       fetchUsers()
@@ -286,7 +298,7 @@ export default function UsersPage() {
                                 password: '',
                                 passwordConfirm: '',
                                 security_question: user.security_question || '',
-                                security_answer: user.security_answer || '',
+                                security_answer: '',
                               })
                               setFieldErrors({})
                               setShowSecurityAnswer(false)
@@ -512,7 +524,7 @@ export default function UsersPage() {
                         onChange={(e) =>
                           setFormData({ ...formData, security_answer: e.target.value })
                         }
-                        required
+                        placeholder="Deixe em branco para manter a atual"
                         className="pr-10"
                       />
                       <button
