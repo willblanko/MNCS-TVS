@@ -119,19 +119,20 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
           const item = items[i]
           const exists = oldItems.find((o) => o.id === item.id)
           const durationToSave = Math.max(1, Number(item.duration) || 10)
+          const sortOrder = i + 1 // Use i + 1 because PocketBase required number fields reject 0 as blank
 
           if (exists) {
             await pb.collection('playlist_items').update(item.id, {
               playlist: currentPlaylistId,
               file: item.fileId,
-              sort_order: i,
+              sort_order: sortOrder,
               duration: durationToSave,
             })
           } else {
             await pb.collection('playlist_items').create({
               playlist: currentPlaylistId,
               file: item.fileId,
-              sort_order: i,
+              sort_order: sortOrder,
               duration: durationToSave,
             })
           }
@@ -198,6 +199,19 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         </DialogHeader>
 
         <div className="flex-1 flex flex-col gap-4 mt-2 overflow-hidden min-h-0">
+          {Object.keys(fieldErrors).length > 0 && !fieldErrors.name && (
+            <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm border border-red-200">
+              <p className="font-semibold mb-1">Erros de validação:</p>
+              <ul className="list-disc pl-4">
+                {Object.entries(fieldErrors).map(([field, msg]) => (
+                  <li key={field}>
+                    <strong>{field}:</strong> {String(msg)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="space-y-2 shrink-0">
             <Label>Nome da Playlist</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
