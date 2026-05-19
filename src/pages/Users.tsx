@@ -317,7 +317,7 @@ export default function UsersPage() {
               ) : (
                 users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.email}</TableCell>
+                    <TableCell className="font-medium">{user.email || '---'}</TableCell>
                     <TableCell>{user.name || '---'}</TableCell>
                     <TableCell>
                       <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
@@ -344,7 +344,7 @@ export default function UsersPage() {
                               setSelectedUser(user)
                               setFormData({
                                 name: user.name || '',
-                                email: user.email,
+                                email: user.email || '',
                                 password: '',
                                 passwordConfirm: '',
                                 role: user.role || 'user',
