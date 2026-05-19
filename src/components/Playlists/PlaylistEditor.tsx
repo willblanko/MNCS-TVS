@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Trash2, GripVertical, Plus } from 'lucide-react'
+import { Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
@@ -66,25 +66,45 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
 
       if (playlist) {
         await pb.collection('playlists').update(playlist.id, { name })
-        const oldItems = await pb
-          .collection('playlist_items')
-          .getFullList({ filter: `playlist='${playlist.id}'` })
-        for (const item of oldItems) {
-          await pb.collection('playlist_items').delete(item.id)
-        }
       } else {
         const data = await pb.collection('playlists').create({ name, user: user?.id })
         currentPlaylistId = data.id
       }
 
-      if (currentPlaylistId && items.length > 0) {
+      if (currentPlaylistId) {
+        const oldItems = playlist
+          ? await pb
+              .collection('playlist_items')
+              .getFullList({ filter: `playlist='${currentPlaylistId}'` })
+          : []
+
+        const newIds = new Set(items.map((i) => i.id))
+
+        // Delete removed items
+        for (const old of oldItems) {
+          if (!newIds.has(old.id)) {
+            await pb.collection('playlist_items').delete(old.id)
+          }
+        }
+
+        // Create or Update items
         for (let i = 0; i < items.length; i++) {
-          await pb.collection('playlist_items').create({
-            playlist: currentPlaylistId,
-            file: items[i].fileId,
-            sort_order: i,
-            duration: items[i].duration,
-          })
+          const item = items[i]
+          const exists = oldItems.find((o) => o.id === item.id)
+
+          if (exists) {
+            await pb.collection('playlist_items').update(item.id, {
+              sort_order: i,
+              duration: item.duration,
+            })
+          } else {
+            await pb.collection('playlist_items').create({
+              playlist: currentPlaylistId,
+              file: item.fileId,
+              sort_order: i,
+              duration: item.duration,
+            })
+          }
         }
       }
 
@@ -113,6 +133,28 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         order: prev.length,
       },
     ])
+    toast({
+      title: 'Arquivo adicionado',
+      description: `"${file.name}" foi adicionado à playlist.`,
+    })
+  }
+
+  const moveUp = (idx: number) => {
+    if (idx === 0) return
+    const newItems = [...items]
+    const temp = newItems[idx]
+    newItems[idx] = newItems[idx - 1]
+    newItems[idx - 1] = temp
+    setItems(newItems)
+  }
+
+  const moveDown = (idx: number) => {
+    if (idx === items.length - 1) return
+    const newItems = [...items]
+    const temp = newItems[idx]
+    newItems[idx] = newItems[idx + 1]
+    newItems[idx + 1] = temp
+    setItems(newItems)
   }
 
   return (
@@ -185,7 +227,28 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                           key={item.id}
                           className="flex items-center gap-2 sm:gap-3 bg-muted/50 p-2 rounded-md max-w-full overflow-hidden"
                         >
-                          <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab shrink-0" />
+                          <div className="flex flex-col items-center gap-1 shrink-0 px-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 hover:bg-muted"
+                              disabled={idx === 0}
+                              onClick={() => moveUp(idx)}
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 hover:bg-muted"
+                              disabled={idx === items.length - 1}
+                              onClick={() => moveDown(idx)}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                          </div>
                           <img
                             src={file.thumbnail || file.url}
                             alt=""

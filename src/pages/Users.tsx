@@ -113,6 +113,9 @@ export default function UsersPage() {
     if (!formData.password) {
       errors.password = 'Este campo é obrigatório'
       hasError = true
+    } else if (formData.password.length < 8) {
+      errors.password = 'A senha deve ter no mínimo 8 caracteres'
+      hasError = true
     }
     if (!formData.passwordConfirm) {
       errors.passwordConfirm = 'Este campo é obrigatório'
@@ -173,10 +176,6 @@ export default function UsersPage() {
       errors.security_question = 'Este campo é obrigatório'
       hasError = true
     }
-    if (!formData.security_answer?.trim()) {
-      errors.security_answer = 'Este campo é obrigatório'
-      hasError = true
-    }
 
     setFieldErrors(errors)
 
@@ -188,7 +187,10 @@ export default function UsersPage() {
     const payload: any = {
       name: formData.name.trim(),
       security_question: formData.security_question,
-      security_answer: formData.security_answer.trim(),
+    }
+
+    if (formData.security_answer?.trim()) {
+      payload.security_answer = formData.security_answer.trim()
     }
 
     try {
