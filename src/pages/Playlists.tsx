@@ -11,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { PlaylistEditor } from '@/components/Playlists/PlaylistEditor'
+import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 export interface PlaylistData {
   id: string
@@ -24,6 +26,7 @@ export interface PlaylistData {
 }
 
 export default function Playlists() {
+  const { toast } = useToast()
   const [playlists, setPlaylists] = useState<PlaylistData[]>([])
   const [files, setFiles] = useState<any[]>([])
   const [editorOpen, setEditorOpen] = useState(false)
@@ -50,8 +53,14 @@ export default function Playlists() {
           })),
       }))
       setPlaylists(mappedPlaylists)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      if (!err.isAbort) {
+        toast({
+          title: 'Erro',
+          description: getErrorMessage(err) || 'Falha ao carregar playlists.',
+          variant: 'destructive',
+        })
+      }
     }
   }
 
@@ -80,8 +89,13 @@ export default function Playlists() {
     try {
       await pb.collection('playlists').delete(id)
       fetchData()
-    } catch (err) {
-      console.error(err)
+      toast({ title: 'Sucesso', description: 'Playlist removida com sucesso!' })
+    } catch (err: any) {
+      toast({
+        title: 'Erro',
+        description: getErrorMessage(err) || 'Não foi possível remover a playlist',
+        variant: 'destructive',
+      })
     }
   }
 

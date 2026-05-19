@@ -45,7 +45,7 @@ import {
 } from '@/components/ui/select'
 import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { extractFieldErrors } from '@/lib/pocketbase/errors'
+import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -74,8 +74,14 @@ export default function UsersPage() {
     try {
       const data = await pb.collection('users').getFullList({ sort: '-created' })
       setUsers(data)
-    } catch {
-      /* intentionally ignored */
+    } catch (err: any) {
+      if (!err.isAbort) {
+        toast({
+          title: 'Erro',
+          description: getErrorMessage(err) || 'Falha ao carregar usuários.',
+          variant: 'destructive',
+        })
+      }
     }
     setLoading(false)
   }
@@ -134,7 +140,11 @@ export default function UsersPage() {
       fetchUsers()
     } catch (err: any) {
       setFieldErrors(extractFieldErrors(err))
-      toast({ title: 'Erro', description: 'Falha ao criar usuário.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: getErrorMessage(err) || 'Falha ao criar usuário.',
+        variant: 'destructive',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -171,7 +181,11 @@ export default function UsersPage() {
       fetchUsers()
     } catch (err: any) {
       setFieldErrors(extractFieldErrors(err))
-      toast({ title: 'Erro', description: 'Falha ao atualizar usuário.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: getErrorMessage(err) || 'Falha ao atualizar usuário.',
+        variant: 'destructive',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -219,7 +233,11 @@ export default function UsersPage() {
       setIsPasswordOpen(false)
     } catch (err: any) {
       setFieldErrors(extractFieldErrors(err))
-      toast({ title: 'Erro', description: 'Falha ao alterar a senha.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: getErrorMessage(err) || 'Falha ao alterar a senha.',
+        variant: 'destructive',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -233,7 +251,11 @@ export default function UsersPage() {
       setIsDeleteOpen(false)
       fetchUsers()
     } catch (err: any) {
-      toast({ title: 'Erro', description: 'Falha ao remover usuário.', variant: 'destructive' })
+      toast({
+        title: 'Erro',
+        description: getErrorMessage(err) || 'Falha ao remover usuário.',
+        variant: 'destructive',
+      })
     } finally {
       setIsSubmitting(false)
     }

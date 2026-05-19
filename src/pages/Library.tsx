@@ -13,8 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Search } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function Library() {
+  const { toast } = useToast()
   const [files, setFiles] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState('all')
@@ -25,8 +28,14 @@ export default function Library() {
     try {
       const data = await pb.collection('files').getFullList({ sort: '-created' })
       setFiles(data)
-    } catch (err) {
-      console.error(err)
+    } catch (err: any) {
+      if (!err.isAbort) {
+        toast({
+          title: 'Erro',
+          description: getErrorMessage(err) || 'Falha ao carregar arquivos.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       if (showLoading) setIsLoading(false)
     }

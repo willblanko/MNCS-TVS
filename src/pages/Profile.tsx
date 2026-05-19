@@ -24,7 +24,7 @@ import {
 } from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { useToast } from '@/hooks/use-toast'
-import { extractFieldErrors } from '@/lib/pocketbase/errors'
+import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function Profile() {
   const { user } = useAuth()
@@ -67,7 +67,11 @@ export default function Profile() {
       await pb.collection('users').update(user.id, { name })
       toast({ title: 'Perfil atualizado com sucesso!' })
     } catch (error: any) {
-      toast({ title: 'Erro ao salvar perfil', description: error.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao salvar perfil',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     } finally {
       setIsSaving(false)
     }
@@ -91,7 +95,11 @@ export default function Profile() {
 
       toast({ title: 'Foto atualizada com sucesso!' })
     } catch (error: any) {
-      toast({ title: 'Erro ao enviar foto', description: error.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao enviar foto',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     } finally {
       setIsUploading(false)
     }
@@ -129,7 +137,11 @@ export default function Profile() {
       setConfirmPassword('')
     } catch (error: any) {
       setFieldErrors(extractFieldErrors(error))
-      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
+      toast({
+        title: 'Erro ao alterar senha',
+        description: getErrorMessage(error),
+        variant: 'destructive',
+      })
     } finally {
       setIsChangingPassword(false)
     }

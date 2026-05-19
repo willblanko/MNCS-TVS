@@ -16,7 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import pb from '@/lib/pocketbase/client'
 import { useAuth } from '@/hooks/use-auth'
 import { useToast } from '@/hooks/use-toast'
-import { extractFieldErrors } from '@/lib/pocketbase/errors'
+import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
 import type { PlaylistData } from '@/pages/Playlists'
 
 interface Props {
@@ -133,7 +133,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       setFieldErrors(extractFieldErrors(err))
       toast({
         title: 'Erro',
-        description: 'Não foi possível salvar a playlist',
+        description: getErrorMessage(err) || 'Não foi possível salvar a playlist',
         variant: 'destructive',
       })
     } finally {
