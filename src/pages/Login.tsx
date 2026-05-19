@@ -16,7 +16,7 @@ export default function Login() {
   const location = useLocation()
   const { toast } = useToast()
 
-  const [mode, setMode] = useState<'login' | 'email' | 'reset'>('login')
+  const [mode, setMode] = useState<'login' | 'email'>('login')
 
   // Login state
   const [email, setEmail] = useState('')
@@ -25,10 +25,6 @@ export default function Login() {
 
   // Reset state
   const [resetEmail, setResetEmail] = useState('')
-  const [resetQuestion, setResetQuestion] = useState('')
-  const [resetAnswer, setResetAnswer] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmNewPassword, setConfirmNewPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const from = location.state?.from?.pathname || '/biblioteca'
@@ -50,58 +46,22 @@ export default function Login() {
     }
   }
 
-  const handleGetQuestion = async (e: React.FormEvent) => {
+  const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMsg('')
     setIsLoading(true)
     try {
-      const res = await pb.send('/backend/v1/users/security-question', {
-        method: 'POST',
-        body: JSON.stringify({ email: resetEmail }),
-      })
-      setResetQuestion(res.question)
-      setMode('reset')
-    } catch (err: any) {
-      // Fallback dummy to prevent enumeration if API returns error
-      setResetQuestion('Qual era o nome do seu primeiro animal de estimação?')
-      setMode('reset')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setErrorMsg('')
-
-    if (newPassword !== confirmNewPassword) {
-      setErrorMsg('As senhas não coincidem.')
-      return
-    }
-
-    setIsLoading(true)
-    try {
-      await pb.send('/backend/v1/users/security-reset', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: resetEmail,
-          answer: resetAnswer,
-          password: newPassword,
-          passwordConfirm: confirmNewPassword,
-        }),
-      })
+      await pb.collection('users').requestPasswordReset(resetEmail)
       toast({
-        title: 'Senha alterada com sucesso!',
-        description: 'Você já pode fazer login com a nova senha.',
+        title: 'E-mail enviado',
+        description:
+          'Se houver uma conta com este e-mail, um link de redefinição de senha foi enviado.',
       })
       setMode('login')
       setResetEmail('')
-      setResetAnswer('')
-      setNewPassword('')
-      setConfirmNewPassword('')
     } catch (err: any) {
       setErrorMsg(
-        err.response?.message || err.message || 'Resposta incorreta ou erro ao redefinir a senha.',
+        'Não foi possível solicitar a redefinição de senha. Verifique o e-mail e tente novamente.',
       )
     } finally {
       setIsLoading(false)
@@ -175,9 +135,9 @@ export default function Login() {
           <>
             <h1 className="text-2xl font-bold text-center mb-2">Recuperar Senha</h1>
             <p className="text-center text-sm text-muted-foreground mb-6">
-              Digite seu e-mail para continuar.
+              Digite seu e-mail para receber um link de redefinição de senha.
             </p>
-            <form onSubmit={handleGetQuestion} className="space-y-4">
+            <form onSubmit={handleRequestReset} className="space-y-4">
               {errorMsg && (
                 <div className="p-3 text-sm text-red-500 bg-red-100 dark:bg-red-900/30 rounded">
                   {errorMsg}
@@ -194,7 +154,7 @@ export default function Login() {
               </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Continuar
+                Enviar link
               </Button>
               <div className="text-center mt-4">
                 <Button
@@ -204,66 +164,6 @@ export default function Login() {
                   className="text-sm"
                 >
                   Voltar para o Login
-                </Button>
-              </div>
-            </form>
-          </>
-        )}
-
-        {mode === 'reset' && (
-          <>
-            <h1 className="text-2xl font-bold text-center mb-2">Pergunta de Segurança</h1>
-            <p className="text-center text-sm text-muted-foreground mb-6">
-              Se o e-mail estiver cadastrado, responda à pergunta abaixo.
-            </p>
-            <form onSubmit={handleResetPassword} className="space-y-4">
-              {errorMsg && (
-                <div className="p-3 text-sm text-red-500 bg-red-100 dark:bg-red-900/30 rounded">
-                  {errorMsg}
-                </div>
-              )}
-              <div className="space-y-1">
-                <Label className="text-sm font-semibold text-foreground/80">{resetQuestion}</Label>
-                <Input
-                  type="text"
-                  placeholder="Sua resposta secreta"
-                  value={resetAnswer}
-                  onChange={(e) => setResetAnswer(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-1 pt-2">
-                <Input
-                  type="password"
-                  placeholder="Nova senha"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                  minLength={8}
-                />
-              </div>
-              <div className="space-y-1">
-                <Input
-                  type="password"
-                  placeholder="Confirme a nova senha"
-                  value={confirmNewPassword}
-                  onChange={(e) => setConfirmNewPassword(e.target.value)}
-                  required
-                  minLength={8}
-                />
-              </div>
-              <Button type="submit" className="w-full mt-2" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Redefinir Senha
-              </Button>
-              <div className="text-center mt-4">
-                <Button
-                  type="button"
-                  variant="link"
-                  onClick={() => setMode('login')}
-                  className="text-sm"
-                >
-                  Cancelar
                 </Button>
               </div>
             </form>

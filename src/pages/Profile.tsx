@@ -10,7 +10,7 @@ import {
   CardFooter,
 } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { User, Upload, Loader2, Moon, Sun, Save, Lock, Eye, EyeOff } from 'lucide-react'
+import { User, Upload, Loader2, Moon, Sun, Save, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,14 +25,6 @@ import {
 import { useTheme } from '@/components/theme-provider'
 import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
-
-const SECURITY_QUESTIONS = [
-  'Qual o nome da sua primeira escola?',
-  'Qual era o nome do seu primeiro animal de estimação?',
-  'Qual o nome da rua onde você cresceu?',
-  'Qual o nome da sua primeira professora?',
-  'Qual o nome do seu filme favorito?',
-]
 
 export default function Profile() {
   const { user } = useAuth()
@@ -51,12 +43,6 @@ export default function Profile() {
   const [fieldErrors, setFieldErrors] = useState<any>({})
   const [profileErrors, setProfileErrors] = useState<any>({})
 
-  const [securityQuestion, setSecurityQuestion] = useState('')
-  const [securityAnswer, setSecurityAnswer] = useState('')
-  const [showSecurityAnswer, setShowSecurityAnswer] = useState(false)
-  const [isSavingSecurity, setIsSavingSecurity] = useState(false)
-  const [securityErrors, setSecurityErrors] = useState<any>({})
-
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -65,8 +51,6 @@ export default function Profile() {
       if (user.avatar) {
         setAvatarUrl(pb.files.getURL(user, user.avatar))
       }
-      setSecurityQuestion(user.security_question || '')
-      setSecurityAnswer(user.security_answer || '')
     }
   }, [user])
 
@@ -148,36 +132,6 @@ export default function Profile() {
       toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
     } finally {
       setIsChangingPassword(false)
-    }
-  }
-
-  const handleSaveSecurity = async () => {
-    const errors: any = {}
-    if (!securityQuestion) {
-      errors.securityQuestion = 'Este campo é obrigatório'
-    }
-    if (!securityAnswer.trim()) {
-      errors.securityAnswer = 'Este campo é obrigatório'
-    }
-
-    setSecurityErrors(errors)
-    if (Object.keys(errors).length > 0) return
-
-    setIsSavingSecurity(true)
-    try {
-      await pb.collection('users').update(user.id, {
-        security_question: securityQuestion,
-        security_answer: securityAnswer,
-      })
-      toast({ title: 'Segurança atualizada com sucesso!' })
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao atualizar segurança',
-        description: error.message,
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSavingSecurity(false)
     }
   }
 
@@ -317,71 +271,6 @@ export default function Profile() {
               <Lock className="mr-2 h-4 w-4" />
             )}
             Alterar Senha
-          </Button>
-        </CardFooter>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Recuperação de Conta</CardTitle>
-          <CardDescription>
-            Configure uma pergunta de segurança para recuperar sua senha caso esqueça.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Pergunta de Segurança</Label>
-            <Select value={securityQuestion} onValueChange={setSecurityQuestion}>
-              <SelectTrigger className="max-w-md">
-                <SelectValue placeholder="Selecione uma pergunta" />
-              </SelectTrigger>
-              <SelectContent>
-                {SECURITY_QUESTIONS.map((q) => (
-                  <SelectItem key={q} value={q}>
-                    {q}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {securityErrors.securityQuestion && (
-              <p className="text-sm text-red-500 mt-1">{securityErrors.securityQuestion}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label>Resposta de Segurança</Label>
-            <div className="relative max-w-md">
-              <Input
-                type={showSecurityAnswer ? 'text' : 'password'}
-                value={securityAnswer}
-                onChange={(e) => setSecurityAnswer(e.target.value)}
-                placeholder="Sua resposta secreta"
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowSecurityAnswer(!showSecurityAnswer)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showSecurityAnswer ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {securityErrors.securityAnswer && (
-              <p className="text-sm text-red-500 mt-1">{securityErrors.securityAnswer}</p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex justify-end border-t p-6">
-          <Button
-            onClick={handleSaveSecurity}
-            disabled={isSavingSecurity || !securityQuestion || !securityAnswer}
-            variant="secondary"
-          >
-            {isSavingSecurity ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Salvar Segurança
           </Button>
         </CardFooter>
       </Card>

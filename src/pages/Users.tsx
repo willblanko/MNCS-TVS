@@ -43,17 +43,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus, Eye, EyeOff } from 'lucide-react'
+import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
-
-const SECURITY_QUESTIONS = [
-  'Qual o nome da sua primeira escola?',
-  'Qual era o nome do seu primeiro animal de estimação?',
-  'Qual o nome da rua onde você cresceu?',
-  'Qual o nome da sua primeira professora?',
-  'Qual o nome do seu filme favorito?',
-]
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -68,15 +60,11 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [fieldErrors, setFieldErrors] = useState<any>({})
 
-  const [showSecurityAnswer, setShowSecurityAnswer] = useState(false)
-
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     passwordConfirm: '',
-    security_question: '',
-    security_answer: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -125,15 +113,6 @@ export default function UsersPage() {
       hasError = true
     }
 
-    if (!formData.security_question) {
-      errors.security_question = 'Este campo é obrigatório'
-      hasError = true
-    }
-    if (!formData.security_answer?.trim()) {
-      errors.security_answer = 'Este campo é obrigatório'
-      hasError = true
-    }
-
     setFieldErrors(errors)
 
     if (hasError) {
@@ -147,8 +126,6 @@ export default function UsersPage() {
         password: formData.password,
         passwordConfirm: formData.passwordConfirm,
         name: formData.name.trim(),
-        security_question: formData.security_question,
-        security_answer: formData.security_answer.trim(),
       })
       toast({ title: 'Sucesso', description: 'Usuário criado!' })
       setIsAddOpen(false)
@@ -172,10 +149,6 @@ export default function UsersPage() {
       errors.name = 'Este campo é obrigatório'
       hasError = true
     }
-    if (!formData.security_question) {
-      errors.security_question = 'Este campo é obrigatório'
-      hasError = true
-    }
 
     setFieldErrors(errors)
 
@@ -186,11 +159,6 @@ export default function UsersPage() {
 
     const payload: any = {
       name: formData.name.trim(),
-      security_question: formData.security_question,
-    }
-
-    if (formData.security_answer?.trim()) {
-      payload.security_answer = formData.security_answer.trim()
     }
 
     try {
@@ -279,11 +247,8 @@ export default function UsersPage() {
               email: '',
               password: '',
               passwordConfirm: '',
-              security_question: '',
-              security_answer: '',
             })
             setFieldErrors({})
-            setShowSecurityAnswer(false)
             setIsAddOpen(true)
           }}
         >
@@ -351,11 +316,8 @@ export default function UsersPage() {
                                 email: user.email,
                                 password: '',
                                 passwordConfirm: '',
-                                security_question: user.security_question || '',
-                                security_answer: user.security_answer || '',
                               })
                               setFieldErrors({})
-                              setShowSecurityAnswer(false)
                               setIsEditOpen(true)
                             }}
                           >
@@ -369,8 +331,6 @@ export default function UsersPage() {
                                 email: '',
                                 password: '',
                                 passwordConfirm: '',
-                                security_question: '',
-                                security_answer: '',
                               })
                               setFieldErrors({})
                               setIsPasswordOpen(true)
@@ -448,60 +408,6 @@ export default function UsersPage() {
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
                 )}
               </div>
-
-              <div className="border-t pt-4 mt-2">
-                <h4 className="text-sm font-medium mb-3">Recuperação de Conta</h4>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Pergunta de Segurança</Label>
-                    <Select
-                      value={formData.security_question}
-                      onValueChange={(v) => setFormData({ ...formData, security_question: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma pergunta" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECURITY_QUESTIONS.map((q) => (
-                          <SelectItem key={q} value={q}>
-                            {q}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldErrors.security_question && (
-                      <p className="text-sm text-red-500 mt-1">{fieldErrors.security_question}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Resposta de Segurança</Label>
-                    <div className="relative">
-                      <Input
-                        type={showSecurityAnswer ? 'text' : 'password'}
-                        value={formData.security_answer}
-                        onChange={(e) =>
-                          setFormData({ ...formData, security_answer: e.target.value })
-                        }
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowSecurityAnswer(!showSecurityAnswer)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showSecurityAnswer ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    {fieldErrors.security_answer && (
-                      <p className="text-sm text-red-500 mt-1">{fieldErrors.security_answer}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
@@ -536,60 +442,6 @@ export default function UsersPage() {
                 <Label>Email</Label>
                 <Input value={formData.email} disabled />
                 <p className="text-xs text-muted-foreground">O email não pode ser alterado.</p>
-              </div>
-              <div className="border-t pt-4 mt-2">
-                <h4 className="text-sm font-medium mb-3">Recuperação de Conta</h4>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Pergunta de Segurança</Label>
-                    <Select
-                      value={formData.security_question}
-                      onValueChange={(v) => setFormData({ ...formData, security_question: v })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma pergunta" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SECURITY_QUESTIONS.map((q) => (
-                          <SelectItem key={q} value={q}>
-                            {q}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {fieldErrors.security_question && (
-                      <p className="text-sm text-red-500 mt-1">{fieldErrors.security_question}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Resposta de Segurança</Label>
-                    <div className="relative">
-                      <Input
-                        type={showSecurityAnswer ? 'text' : 'password'}
-                        value={formData.security_answer}
-                        onChange={(e) =>
-                          setFormData({ ...formData, security_answer: e.target.value })
-                        }
-                        placeholder="Deixe em branco para manter a atual"
-                        className="pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowSecurityAnswer(!showSecurityAnswer)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                      >
-                        {showSecurityAnswer ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    {fieldErrors.security_answer && (
-                      <p className="text-sm text-red-500 mt-1">{fieldErrors.security_answer}</p>
-                    )}
-                  </div>
-                </div>
               </div>
             </div>
             <DialogFooter>

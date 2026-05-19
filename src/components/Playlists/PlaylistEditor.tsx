@@ -91,18 +91,19 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
           const exists = oldItems.find((o) => o.id === item.id)
+          const durationToSave = Math.max(1, Number(item.duration) || 15)
 
           if (exists) {
             await pb.collection('playlist_items').update(item.id, {
               sort_order: i,
-              duration: item.duration,
+              duration: durationToSave,
             })
           } else {
             await pb.collection('playlist_items').create({
               playlist: currentPlaylistId,
               file: item.fileId,
               sort_order: i,
-              duration: item.duration,
+              duration: durationToSave,
             })
           }
         }
@@ -129,7 +130,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       {
         id: crypto.randomUUID(),
         fileId: file.id,
-        duration: file.type === 'video' ? 0 : 15,
+        duration: file.type === 'video' ? file.duration || 30 : 15,
         order: prev.length,
       },
     ])
