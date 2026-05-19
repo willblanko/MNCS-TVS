@@ -48,7 +48,7 @@ export default function Playlists() {
           .map((i) => ({
             id: i.id,
             fileId: i.file,
-            duration: i.duration || 15,
+            duration: i.duration || 10,
             order: i.sort_order,
           })),
       }))

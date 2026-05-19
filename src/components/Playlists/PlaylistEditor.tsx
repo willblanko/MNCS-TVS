@@ -78,6 +78,16 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       return
     }
 
+    if (items.some((item) => !item.duration || item.duration < 1 || !item.fileId)) {
+      toast({
+        title: 'Atenção',
+        description: 'Todas as mídias devem ter duração e arquivo válidos.',
+        variant: 'destructive',
+      })
+      setLoading(false)
+      return
+    }
+
     try {
       let currentPlaylistId = playlist?.id
 
@@ -108,7 +118,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
           const exists = oldItems.find((o) => o.id === item.id)
-          const durationToSave = Math.max(1, Number(item.duration) || 15)
+          const durationToSave = Math.max(1, Number(item.duration) || 10)
 
           if (exists) {
             await pb.collection('playlist_items').update(item.id, {
@@ -149,7 +159,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       {
         id: crypto.randomUUID(),
         fileId: file.id,
-        duration: file.type === 'video' ? file.duration || 30 : 15,
+        duration: file.type === 'video' ? file.duration || 10 : 10,
         order: prev.length,
       },
     ])
