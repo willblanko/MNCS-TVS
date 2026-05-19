@@ -32,6 +32,16 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
+const AdminGuard = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth()
+
+  if (user?.role !== 'admin') {
+    return <Navigate to="/" replace />
+  }
+
+  return <>{children}</>
+}
+
 const App = () => (
   <ThemeProvider defaultTheme="system" storageKey="mncs-theme">
     <AuthProvider>
@@ -52,7 +62,14 @@ const App = () => (
               <Route path="/biblioteca" element={<Library />} />
               <Route path="/playlists" element={<Playlists />} />
               <Route path="/tvs" element={<TVs />} />
-              <Route path="/usuarios" element={<UsersPage />} />
+              <Route
+                path="/usuarios"
+                element={
+                  <AdminGuard>
+                    <UsersPage />
+                  </AdminGuard>
+                }
+              />
               <Route path="/perfil" element={<Profile />} />
             </Route>
             <Route path="/player/:tvId" element={<Player />} />

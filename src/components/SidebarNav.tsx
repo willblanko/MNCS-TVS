@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Image as ImageIcon, ListVideo, MonitorPlay, Users } from 'lucide-react'
+import { useAuth } from '@/hooks/use-auth'
 import {
   Sidebar,
   SidebarContent,
@@ -13,13 +14,17 @@ import {
 
 export function SidebarNav() {
   const location = useLocation()
+  const { user } = useAuth()
 
   const navItems = [
     { title: 'Biblioteca', path: '/biblioteca', icon: ImageIcon },
     { title: 'Playlists', path: '/playlists', icon: ListVideo },
     { title: 'TVs', path: '/tvs', icon: MonitorPlay },
-    { title: 'Usuários', path: '/usuarios', icon: Users },
   ]
+
+  if (user?.role === 'admin') {
+    navItems.push({ title: 'Usuários', path: '/usuarios', icon: Users })
+  }
 
   return (
     <Sidebar>

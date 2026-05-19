@@ -61,6 +61,23 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
   const handleSave = async () => {
     setLoading(true)
     setFieldErrors({})
+
+    if (!name.trim()) {
+      setFieldErrors({ name: 'O nome da playlist não pode estar em branco.' })
+      setLoading(false)
+      return
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: 'Atenção',
+        description: 'Adicione pelo menos uma mídia à playlist.',
+        variant: 'destructive',
+      })
+      setLoading(false)
+      return
+    }
+
     try {
       let currentPlaylistId = playlist?.id
 

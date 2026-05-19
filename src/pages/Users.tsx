@@ -65,6 +65,7 @@ export default function UsersPage() {
     email: '',
     password: '',
     passwordConfirm: '',
+    role: 'user',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -126,6 +127,7 @@ export default function UsersPage() {
         password: formData.password,
         passwordConfirm: formData.passwordConfirm,
         name: formData.name.trim(),
+        role: formData.role,
       })
       toast({ title: 'Sucesso', description: 'Usuário criado!' })
       setIsAddOpen(false)
@@ -159,6 +161,7 @@ export default function UsersPage() {
 
     const payload: any = {
       name: formData.name.trim(),
+      role: formData.role,
     }
 
     try {
@@ -247,6 +250,7 @@ export default function UsersPage() {
               email: '',
               password: '',
               passwordConfirm: '',
+              role: 'user',
             })
             setFieldErrors({})
             setIsAddOpen(true)
@@ -260,8 +264,7 @@ export default function UsersPage() {
         <CardHeader>
           <CardTitle>Usuários do Sistema</CardTitle>
           <CardDescription>
-            Devido as regras de isolamento, você só poderá ver as suas próprias informações por
-            aqui.
+            Gerencie os acessos e permissões de todos os usuários da plataforma.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -270,21 +273,22 @@ export default function UsersPage() {
               <TableRow>
                 <TableHead>Email</TableHead>
                 <TableHead>Nome</TableHead>
+                <TableHead>Papel</TableHead>
                 <TableHead>Data de Criação</TableHead>
-                <TableHead>Acesso</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="w-[100px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     Carregando...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
                     Nenhum usuário encontrado.
                   </TableCell>
                 </TableRow>
@@ -293,6 +297,11 @@ export default function UsersPage() {
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell>{user.name || '---'}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {user.role === 'admin' ? 'Administrador' : 'Usuário'}
+                      </Badge>
+                    </TableCell>
                     <TableCell>{new Date(user.created).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Badge className="bg-emerald-500 hover:bg-emerald-600 border-0 text-white">
@@ -316,6 +325,7 @@ export default function UsersPage() {
                                 email: user.email,
                                 password: '',
                                 passwordConfirm: '',
+                                role: user.role || 'user',
                               })
                               setFieldErrors({})
                               setIsEditOpen(true)
@@ -331,6 +341,7 @@ export default function UsersPage() {
                                 email: '',
                                 password: '',
                                 passwordConfirm: '',
+                                role: 'user',
                               })
                               setFieldErrors({})
                               setIsPasswordOpen(true)
@@ -387,6 +398,24 @@ export default function UsersPage() {
                 )}
               </div>
               <div className="space-y-2">
+                <Label>Papel</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(val) => setFormData({ ...formData, role: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o papel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+                {fieldErrors.role && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.role}</p>
+                )}
+              </div>
+              <div className="space-y-2">
                 <Label>Senha</Label>
                 <Input
                   type="password"
@@ -436,6 +465,24 @@ export default function UsersPage() {
                 />
                 {fieldErrors.name && (
                   <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label>Papel</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(val) => setFormData({ ...formData, role: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o papel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Usuário</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+                {fieldErrors.role && (
+                  <p className="text-sm text-red-500 mt-1">{fieldErrors.role}</p>
                 )}
               </div>
               <div className="space-y-2">

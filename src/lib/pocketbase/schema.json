@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-05-19T03:51:19.608Z",
+  "generatedAt": "2026-05-19T04:02:16.635Z",
   "collections": [
     {
       "name": "users",
       "type": "auth",
       "apiRules": {
-        "list": "id = @request.auth.id",
-        "view": "id = @request.auth.id",
+        "list": "id = @request.auth.id || role = 'admin'",
+        "view": "id = @request.auth.id || role = 'admin'",
         "create": "",
-        "update": "id = @request.auth.id",
-        "delete": "id = @request.auth.id"
+        "update": "id = @request.auth.id || role = 'admin'",
+        "delete": "id = @request.auth.id || role = 'admin'"
       },
       "fields": [
         {
@@ -37,6 +37,13 @@
           "required": false,
           "system": false,
           "autodateTriggers": ["onCreate", "onUpdate"]
+        },
+        {
+          "name": "role",
+          "type": "select",
+          "required": false,
+          "system": false,
+          "selectValues": ["admin", "user"]
         }
       ],
       "indexes": [
@@ -48,11 +55,11 @@
       "name": "files",
       "type": "base",
       "apiRules": {
-        "list": "user = @request.auth.id",
-        "view": "user = @request.auth.id",
-        "create": "user = @request.auth.id",
-        "update": "user = @request.auth.id",
-        "delete": "user = @request.auth.id"
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
       },
       "fields": [
         {
@@ -120,11 +127,11 @@
       "name": "playlists",
       "type": "base",
       "apiRules": {
-        "list": "user = @request.auth.id",
-        "view": "user = @request.auth.id",
-        "create": "user = @request.auth.id",
-        "update": "user = @request.auth.id",
-        "delete": "user = @request.auth.id"
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
       },
       "fields": [
         {
@@ -161,11 +168,11 @@
       "name": "playlist_items",
       "type": "base",
       "apiRules": {
-        "list": "playlist.user = @request.auth.id",
-        "view": "playlist.user = @request.auth.id",
-        "create": "playlist.user = @request.auth.id",
-        "update": "playlist.user = @request.auth.id",
-        "delete": "playlist.user = @request.auth.id"
+        "list": "@request.auth.id != ''",
+        "view": "@request.auth.id != ''",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
       },
       "fields": [
         {
