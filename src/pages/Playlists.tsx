@@ -104,7 +104,7 @@ export default function Playlists() {
     playlist.items.forEach((item) => {
       const file = files.find((f) => f.id === item.fileId)
       if (file?.type === 'video') {
-        total += 30 // Aproximação de duração para vídeos
+        total += file.duration || item.duration || 30 // Aproximação de duração para vídeos
       } else {
         total += item.duration
       }

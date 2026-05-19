@@ -112,6 +112,8 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
 
           if (exists) {
             await pb.collection('playlist_items').update(item.id, {
+              playlist: currentPlaylistId,
+              file: item.fileId,
               sort_order: i,
               duration: durationToSave,
             })
