@@ -69,8 +69,8 @@ export default function Login() {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900">
-      <div className="w-full max-w-sm p-8 bg-card rounded-xl shadow-lg border">
+    <div className="flex h-[100dvh] w-screen items-center justify-center bg-zinc-50 dark:bg-zinc-900 px-4">
+      <div className="w-full max-w-sm p-6 sm:p-8 bg-card rounded-xl shadow-lg border">
         <div className="flex items-center justify-center mb-6">
           <img src={logoBlack} alt="MNCS Logo" className="h-24 w-auto object-contain dark:hidden" />
           <img

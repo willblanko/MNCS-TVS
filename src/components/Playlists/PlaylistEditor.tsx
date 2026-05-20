@@ -190,15 +190,15 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[80vh] flex flex-col overflow-hidden p-4 sm:p-6">
-        <DialogHeader className="shrink-0">
+      <DialogContent className="max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none w-[95vw] sm:max-w-4xl h-[90vh] sm:h-[80vh] flex flex-col overflow-hidden p-0 sm:p-6">
+        <DialogHeader className="shrink-0 p-4 sm:p-0 pb-0">
           <DialogTitle>{playlist ? 'Editar Playlist' : 'Criar Playlist'}</DialogTitle>
           <DialogDescription>
             Selecione as mídias da biblioteca e organize a ordem e duração.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 flex flex-col gap-4 mt-2 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col gap-4 mt-2 overflow-hidden min-h-0 p-4 sm:p-0 pt-0">
           {Object.keys(fieldErrors).length > 0 && !fieldErrors.name && (
             <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm border border-red-200">
               <p className="font-semibold mb-1">Erros de validação:</p>
@@ -271,26 +271,26 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                           key={item.id}
                           className="flex items-center gap-2 sm:gap-3 bg-muted/50 p-2 rounded-md max-w-full overflow-hidden"
                         >
-                          <div className="flex flex-col items-center gap-1 shrink-0 px-1">
+                          <div className="flex flex-col items-center gap-1 shrink-0 px-0 sm:px-1">
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-5 w-5 hover:bg-muted"
+                              className="h-8 w-8 sm:h-5 sm:w-5 hover:bg-muted"
                               disabled={idx === 0}
                               onClick={() => moveUp(idx)}
                             >
-                              <ChevronUp className="h-4 w-4" />
+                              <ChevronUp className="h-5 w-5 sm:h-4 sm:w-4" />
                             </Button>
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
-                              className="h-5 w-5 hover:bg-muted"
+                              className="h-8 w-8 sm:h-5 sm:w-5 hover:bg-muted"
                               disabled={idx === items.length - 1}
                               onClick={() => moveDown(idx)}
                             >
-                              <ChevronDown className="h-4 w-4" />
+                              <ChevronDown className="h-5 w-5 sm:h-4 sm:w-4" />
                             </Button>
                           </div>
                           <img
@@ -310,7 +310,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                             <div className="flex items-center shrink-0">
                               <Input
                                 type="number"
-                                className="w-16 h-8 text-xs text-center"
+                                className="w-16 h-10 sm:h-8 text-sm sm:text-xs text-center"
                                 value={item.duration}
                                 min={1}
                                 onChange={(e) => {
@@ -325,7 +325,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
                             type="button"
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-destructive shrink-0"
+                            className="h-10 w-10 sm:h-8 sm:w-8 text-destructive shrink-0"
                             onClick={(e) => {
                               e.preventDefault()
                               e.stopPropagation()
@@ -344,7 +344,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
           </div>
         </div>
 
-        <DialogFooter className="mt-4 pt-4 border-t shrink-0">
+        <DialogFooter className="mt-auto pt-4 p-4 sm:p-0 border-t shrink-0">
           <DialogClose asChild>
             <Button variant="outline" disabled={loading}>
               Cancelar

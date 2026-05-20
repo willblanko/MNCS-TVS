@@ -289,8 +289,8 @@ export default function UsersPage() {
             Gerencie os acessos e permissões de todos os usuários da plataforma.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="p-0 sm:p-6 overflow-x-auto">
+          <Table className="min-w-[700px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
@@ -392,12 +392,12 @@ export default function UsersPage() {
       </Card>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-md">
-          <form onSubmit={handleCreate} noValidate>
-            <DialogHeader>
+        <DialogContent className="max-w-md max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none p-0 sm:p-6">
+          <form onSubmit={handleCreate} noValidate className="flex flex-col h-full">
+            <DialogHeader className="p-4 sm:p-0 pb-0">
               <DialogTitle>Novo Usuário</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto">
               <div className="space-y-2">
                 <Label>Nome</Label>
                 <Input
@@ -460,7 +460,7 @@ export default function UsersPage() {
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
               <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
                 Cancelar
               </Button>
@@ -473,12 +473,12 @@ export default function UsersPage() {
       </Dialog>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent>
-          <form onSubmit={handleEdit} noValidate>
-            <DialogHeader>
+        <DialogContent className="max-w-md max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none p-0 sm:p-6">
+          <form onSubmit={handleEdit} noValidate className="flex flex-col h-full">
+            <DialogHeader className="p-4 sm:p-0 pb-0">
               <DialogTitle>Editar Usuário</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto">
               <div className="space-y-2">
                 <Label>Nome</Label>
                 <Input
@@ -513,7 +513,7 @@ export default function UsersPage() {
                 <p className="text-xs text-muted-foreground">O email não pode ser alterado.</p>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                 Cancelar
               </Button>
@@ -526,12 +526,12 @@ export default function UsersPage() {
       </Dialog>
 
       <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
-        <DialogContent>
-          <form onSubmit={handlePassword} noValidate>
-            <DialogHeader>
+        <DialogContent className="max-w-md max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none p-0 sm:p-6">
+          <form onSubmit={handlePassword} noValidate className="flex flex-col h-full">
+            <DialogHeader className="p-4 sm:p-0 pb-0">
               <DialogTitle>Alterar Senha</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto">
               <p className="text-sm text-muted-foreground">
                 Alterando senha para <strong>{selectedUser?.email}</strong>
               </p>
@@ -558,7 +558,7 @@ export default function UsersPage() {
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
               <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)}>
                 Cancelar
               </Button>

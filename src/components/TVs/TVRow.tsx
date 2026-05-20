@@ -8,6 +8,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
+import { Card, CardContent } from '@/components/ui/card'
 import { ExternalLink, Copy, CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -16,9 +17,10 @@ interface TVRowProps {
   playlists: { id: string; name: string }[]
   onUpdate: (id: string, updates: any) => void
   onRemove: (id: string) => void
+  isMobile?: boolean
 }
 
-export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
+export function TVRow({ tv, playlists, onUpdate, onRemove, isMobile }: TVRowProps) {
   const [copied, setCopied] = useState(false)
 
   const playerUrl = `${window.location.origin}/player/${tv.code}`
@@ -27,6 +29,85 @@ export function TVRow({ tv, playlists, onUpdate, onRemove }: TVRowProps) {
     navigator.clipboard.writeText(playerUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (isMobile) {
+    return (
+      <Card className="overflow-hidden">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex justify-between items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold text-base truncate">{tv.name}</div>
+              <div className="text-xs text-muted-foreground">Código: {tv.code}</div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs font-medium text-muted-foreground">
+                {tv.status === 'online' ? 'Online' : 'Offline'}
+              </span>
+              <span
+                className={`h-2.5 w-2.5 rounded-full transition-colors ${tv.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground'}`}
+              />
+              <Switch
+                checked={tv.status === 'online'}
+                onCheckedChange={(checked) =>
+                  onUpdate(tv.id, { status: checked ? 'online' : 'offline' })
+                }
+                aria-label="Alternar status"
+                className="ml-1"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-xs font-medium text-muted-foreground">Playlist Ativa</span>
+            <Select
+              value={tv.current_playlist || 'none'}
+              onValueChange={(val) =>
+                onUpdate(tv.id, { current_playlist: val === 'none' ? null : val })
+              }
+            >
+              <SelectTrigger className="w-full h-10 text-sm">
+                <SelectValue placeholder="Sem Playlist" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem Playlist</SelectItem>
+                {playlists.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2 pt-2 border-t mt-4">
+            <Button variant="outline" className="flex-1" onClick={copyUrl} title="Copiar Link">
+              {copied ? (
+                <>
+                  <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" /> Copiado
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" /> Copiar Link
+                </>
+              )}
+            </Button>
+            <Button variant="secondary" className="flex-1" asChild>
+              <a href={`/player/${tv.code}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" /> Abrir
+              </a>
+            </Button>
+          </div>
+          <Button
+            variant="ghost"
+            className="w-full text-destructive hover:bg-destructive/10 mt-2"
+            onClick={() => onRemove(tv.id)}
+          >
+            Remover TV
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

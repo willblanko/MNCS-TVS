@@ -108,34 +108,34 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
               }
             }}
           />
-          <div className="absolute top-2 left-2 flex gap-1">
+          <div className="absolute top-1 left-1 sm:top-2 sm:left-2 flex gap-1">
             <Badge
               variant="secondary"
-              className="bg-black/50 text-white hover:bg-black/50 backdrop-blur-sm border-0"
+              className="bg-black/50 text-white hover:bg-black/50 backdrop-blur-sm border-0 text-[10px] sm:text-xs px-1.5 py-0 sm:px-2 sm:py-0.5"
             >
               {file.type === 'video' ? (
-                <Video className="h-3 w-3 mr-1" />
+                <Video className="h-3 w-3 mr-1 hidden sm:block" />
               ) : (
-                <ImageIcon className="h-3 w-3 mr-1" />
+                <ImageIcon className="h-3 w-3 mr-1 hidden sm:block" />
               )}
               {file.type === 'video' ? 'Vídeo' : 'Imagem'}
             </Badge>
           </div>
         </div>
-        <CardContent className="p-4 flex-1 flex flex-col justify-between">
-          <div className="flex justify-between items-start mb-2 gap-2">
+        <CardContent className="p-3 sm:p-4 flex-1 flex flex-col justify-between">
+          <div className="flex justify-between items-start mb-2 gap-1 sm:gap-2">
             <h3
-              className="font-medium truncate text-sm flex-1 cursor-pointer hover:underline"
+              className="font-medium truncate text-xs sm:text-sm flex-1 cursor-pointer hover:underline"
               title={file.name}
               onClick={() => setIsPreviewOpen(true)}
             >
               {file.name}
             </h3>
-            <div className="flex gap-1 shrink-0 -mt-1 -mr-2">
+            <div className="flex sm:gap-1 shrink-0 -mt-1 -mr-2 flex-wrap justify-end">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
                 disabled={isDeleting || isRenaming}
                 onClick={async () => {
                   try {
@@ -179,7 +179,7 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
                 disabled={isDeleting || isRenaming}
                 onClick={() => {
                   setNewName(file.name)
@@ -194,7 +194,7 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                    className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-destructive"
                     disabled={isDeleting}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -239,30 +239,36 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
       </Dialog>
 
       <Dialog open={isRenameOpen} onOpenChange={setIsRenameOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renomear arquivo</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="filename">Nome do arquivo</Label>
-              <Input
-                id="filename"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="Digite o novo nome..."
-                autoFocus
-              />
+        <DialogContent className="max-w-md max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none p-0 sm:p-6">
+          <div className="flex flex-col h-full">
+            <DialogHeader className="p-4 sm:p-0 pb-0">
+              <DialogTitle>Renomear arquivo</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto content-start">
+              <div className="space-y-2">
+                <Label htmlFor="filename">Nome do arquivo</Label>
+                <Input
+                  id="filename"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Digite o novo nome..."
+                  autoFocus
+                />
+              </div>
             </div>
+            <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
+              <Button
+                variant="outline"
+                onClick={() => setIsRenameOpen(false)}
+                disabled={isRenaming}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleRename} disabled={isRenaming}>
+                {isRenaming ? 'Renomeando...' : 'Salvar'}
+              </Button>
+            </DialogFooter>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsRenameOpen(false)} disabled={isRenaming}>
-              Cancelar
-            </Button>
-            <Button onClick={handleRename} disabled={isRenaming}>
-              {isRenaming ? 'Renomeando...' : 'Salvar'}
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

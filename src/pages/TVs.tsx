@@ -119,13 +119,13 @@ export default function TVs() {
       </div>
 
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
-          <form onSubmit={handleAddTV}>
-            <DialogHeader>
+        <DialogContent className="max-w-md max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none p-0 sm:p-6">
+          <form onSubmit={handleAddTV} className="flex flex-col h-full">
+            <DialogHeader className="p-4 sm:p-0 pb-0">
               <DialogTitle>Adicionar Nova TV</DialogTitle>
               <DialogDescription>Informe o nome e o código de acesso para a TV.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="grid gap-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto content-start">
               <div className="grid gap-2">
                 <Label htmlFor="name">Nome da TV *</Label>
                 <Input
@@ -155,7 +155,7 @@ export default function TVs() {
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
               <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancelar
               </Button>
@@ -165,7 +165,7 @@ export default function TVs() {
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-md border bg-card shadow-sm overflow-hidden">
+      <div className="hidden md:block rounded-md border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/50">
             <TableRow>
@@ -183,6 +183,7 @@ export default function TVs() {
                 playlists={playlists}
                 onUpdate={handleUpdateTV}
                 onRemove={handleRemoveTV}
+                isMobile={false}
               />
             ))}
             {!loading && tvs.length === 0 && (
@@ -199,6 +200,29 @@ export default function TVs() {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {tvs.map((tv) => (
+          <TVRow
+            key={tv.id}
+            tv={tv}
+            playlists={playlists}
+            onUpdate={handleUpdateTV}
+            onRemove={handleRemoveTV}
+            isMobile={true}
+          />
+        ))}
+        {!loading && tvs.length === 0 && (
+          <div className="text-center py-12 text-muted-foreground border rounded-lg bg-card">
+            <div className="flex flex-col items-center justify-center space-y-3">
+              <p>Nenhuma TV encontrada.</p>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Adicionar Primeira TV
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

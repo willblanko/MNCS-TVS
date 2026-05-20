@@ -89,19 +89,19 @@ export default function Library() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="flex flex-col space-y-3">
-              <Skeleton className="h-[200px] w-full rounded-xl" />
+              <Skeleton className="h-[120px] sm:h-[160px] w-full rounded-xl" />
               <div className="space-y-2">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-[200px]" />
+                <Skeleton className="h-3 sm:h-4 w-full" />
+                <Skeleton className="h-3 sm:h-4 w-[80%]" />
               </div>
             </div>
           ))}
         </div>
       ) : filteredFiles.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
           {filteredFiles.map((file) => (
             <MediaCard key={file.id} file={file} onDeleteSuccess={() => fetchFiles(false)} />
           ))}
