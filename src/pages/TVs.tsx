@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import { TVSchedulesModal } from '@/components/TVs/TVSchedulesModal'
 import {
   Dialog,
   DialogContent,
@@ -35,10 +36,14 @@ export default function TVs() {
   const [newTvName, setNewTvName] = useState('')
   const [newTvCode, setNewTvCode] = useState('')
   const [fieldErrors, setFieldErrors] = useState<any>({})
+  const [scheduleTv, setScheduleTv] = useState<any>(null)
 
   const fetchTVs = async () => {
     try {
-      const data = await pb.collection('tvs').getFullList({ sort: 'created' })
+      if (!user?.id) return
+      const data = await pb
+        .collection('tvs')
+        .getFullList({ sort: 'created', filter: `user="${user.id}"` })
       setTvs(data)
     } catch {
       /* intentionally ignored */
@@ -48,7 +53,10 @@ export default function TVs() {
 
   const fetchPlaylists = async () => {
     try {
-      const data = await pb.collection('playlists').getFullList({ sort: 'name' })
+      if (!user?.id) return
+      const data = await pb
+        .collection('playlists')
+        .getFullList({ sort: 'name', filter: `user="${user.id}"` })
       setPlaylists(data)
     } catch {
       /* intentionally ignored */
@@ -183,6 +191,7 @@ export default function TVs() {
                 playlists={playlists}
                 onUpdate={handleUpdateTV}
                 onRemove={handleRemoveTV}
+                onManageSchedules={() => setScheduleTv(tv)}
                 isMobile={false}
               />
             ))}
@@ -190,7 +199,7 @@ export default function TVs() {
               <TableRow>
                 <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
                   <div className="flex flex-col items-center justify-center space-y-3">
-                    <p>Nenhuma TV encontrada.</p>
+                    <p>Nenhuma TV registrada.</p>
                     <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" /> Adicionar Primeira TV
                     </Button>
@@ -210,13 +219,14 @@ export default function TVs() {
             playlists={playlists}
             onUpdate={handleUpdateTV}
             onRemove={handleRemoveTV}
+            onManageSchedules={() => setScheduleTv(tv)}
             isMobile={true}
           />
         ))}
         {!loading && tvs.length === 0 && (
           <div className="text-center py-12 text-muted-foreground border rounded-lg bg-card">
             <div className="flex flex-col items-center justify-center space-y-3">
-              <p>Nenhuma TV encontrada.</p>
+              <p>Nenhuma TV registrada.</p>
               <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" /> Adicionar Primeira TV
               </Button>
@@ -224,6 +234,15 @@ export default function TVs() {
           </div>
         )}
       </div>
+
+      {scheduleTv && (
+        <TVSchedulesModal
+          tv={scheduleTv}
+          playlists={playlists}
+          isOpen={!!scheduleTv}
+          onClose={() => setScheduleTv(null)}
+        />
+      )}
     </div>
   )
 }

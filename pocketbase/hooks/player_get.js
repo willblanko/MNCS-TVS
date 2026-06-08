@@ -8,8 +8,45 @@ routerAdd('GET', '/backend/v1/player/{code}', (e) => {
     return e.notFoundError('TV not found')
   }
 
+  const schedules = $app.findRecordsByFilter(
+    'playlist_schedules',
+    `tv = '${tv.id}' && active = true`,
+    '-updated',
+    100,
+    0,
+  )
+
+  const now = new Date()
+  const brtTime = new Date(now.getTime() - 3 * 3600 * 1000)
+
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+  const currentDay = days[brtTime.getUTCDay()]
+
+  const currentHours = brtTime.getUTCHours().toString().padStart(2, '0')
+  const currentMinutes = brtTime.getUTCMinutes().toString().padStart(2, '0')
+  const currentTime = `${currentHours}:${currentMinutes}`
+
+  let scheduledPlaylistId = null
+
+  for (const s of schedules) {
+    const rawDays = s.get('days_of_week') || []
+    const isDayMatch = Array.isArray(rawDays)
+      ? rawDays.includes(currentDay)
+      : rawDays === currentDay
+
+    if (isDayMatch) {
+      const startTime = s.getString('start_time')
+      const endTime = s.getString('end_time')
+
+      if (currentTime >= startTime && currentTime <= endTime) {
+        scheduledPlaylistId = s.getString('playlist')
+        break
+      }
+    }
+  }
+
   const items = []
-  const playlistId = tv.getString('current_playlist')
+  const playlistId = scheduledPlaylistId || tv.getString('current_playlist')
 
   if (playlistId) {
     const records = $app.findRecordsByFilter(

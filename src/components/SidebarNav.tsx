@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Image as ImageIcon, ListVideo, MonitorPlay, Users } from 'lucide-react'
+import { Image as ImageIcon, ListVideo, MonitorPlay, CalendarClock, Users } from 'lucide-react'
 import { useAuth } from '@/hooks/use-auth'
 import {
   Sidebar,

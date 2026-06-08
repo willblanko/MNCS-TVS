@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
-import { ExternalLink, Copy, CheckCircle2 } from 'lucide-react'
+import { ExternalLink, Copy, CheckCircle2, CalendarClock } from 'lucide-react'
 import { useState } from 'react'
 
 interface TVRowProps {
@@ -17,10 +17,18 @@ interface TVRowProps {
   playlists: { id: string; name: string }[]
   onUpdate: (id: string, updates: any) => void
   onRemove: (id: string) => void
+  onManageSchedules: () => void
   isMobile?: boolean
 }
 
-export function TVRow({ tv, playlists, onUpdate, onRemove, isMobile }: TVRowProps) {
+export function TVRow({
+  tv,
+  playlists,
+  onUpdate,
+  onRemove,
+  onManageSchedules,
+  isMobile,
+}: TVRowProps) {
   const [copied, setCopied] = useState(false)
 
   const playerUrl = `${window.location.origin}/player/${tv.code}`
@@ -81,6 +89,16 @@ export function TVRow({ tv, playlists, onUpdate, onRemove, isMobile }: TVRowProp
           </div>
 
           <div className="flex gap-2 pt-2 border-t mt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={onManageSchedules}
+              title="Agendamentos"
+            >
+              <CalendarClock className="h-4 w-4 mr-2" /> Agendamentos
+            </Button>
+          </div>
+          <div className="flex gap-2 pt-2">
             <Button variant="outline" className="flex-1" onClick={copyUrl} title="Copiar Link">
               {copied ? (
                 <>
@@ -157,6 +175,15 @@ export function TVRow({ tv, playlists, onUpdate, onRemove, isMobile }: TVRowProp
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onManageSchedules}
+            className="h-9"
+            title="Agendamentos"
+          >
+            <CalendarClock className="h-4 w-4" />
+          </Button>
           <Button variant="outline" size="sm" onClick={copyUrl} className="h-9" title="Copiar Link">
             {copied ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />

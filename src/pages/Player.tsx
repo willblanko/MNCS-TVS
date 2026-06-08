@@ -16,11 +16,56 @@ export default function Player() {
 
   const fetchData = async () => {
     try {
-      const res = await pb.send(`/backend/v1/player/${tvId}`, { method: 'GET' })
-      setCurrentTV(res.tv)
-      setPlaylistItems(res.items || [])
+      const tv = await pb.collection('tvs').getFirstListItem(`code="${tvId}"`, { code: tvId })
+      setCurrentTV(tv)
+
+      if (tv.status === 'offline') {
+        setPlaylistItems([])
+        setLoading(false)
+        return
+      }
+
+      const schedules = await pb.collection('playlist_schedules').getFullList({
+        filter: `tv="${tv.id}" && active=true`,
+      })
+
+      const now = new Date()
+      const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+      const currentDay = days[now.getDay()]
+      const currentHour = now.getHours().toString().padStart(2, '0')
+      const currentMinute = now.getMinutes().toString().padStart(2, '0')
+      const currentTime = `${currentHour}:${currentMinute}`
+
+      let targetPlaylist = tv.current_playlist
+
+      for (const schedule of schedules) {
+        if (
+          schedule.days_of_week.includes(currentDay) &&
+          schedule.start_time <= currentTime &&
+          schedule.end_time >= currentTime
+        ) {
+          targetPlaylist = schedule.playlist
+          break
+        }
+      }
+
+      if (targetPlaylist) {
+        const items = await pb.collection('playlist_items').getFullList({
+          filter: `playlist="${targetPlaylist}"`,
+          sort: 'sort_order',
+          expand: 'file',
+        })
+        const mappedItems = items
+          .map((item: any) => ({ ...item, file: item.expand?.file }))
+          .filter((i) => i.file)
+
+        setPlaylistItems(mappedItems)
+      } else {
+        setPlaylistItems([])
+      }
     } catch (err) {
       console.error('Player fetch error:', err)
+      setCurrentTV(null)
     } finally {
       setLoading(false)
     }
@@ -39,9 +84,9 @@ export default function Player() {
     }
   })
 
-  useRealtime('playlists', () => {
-    fetchData()
-  })
+  useRealtime('playlists', () => fetchData())
+  useRealtime('playlist_schedules', () => fetchData())
+  useRealtime('playlist_items', () => fetchData())
 
   useEffect(() => {
     if (playlistItems.length > 0 && currentIndex >= playlistItems.length) {
@@ -133,10 +178,10 @@ export default function Player() {
   if (!currentTV) {
     return (
       <div
-        className="fixed inset-0 flex h-screen w-screen items-center justify-center bg-black text-white text-xl"
+        className="fixed inset-0 flex h-screen w-screen items-center justify-center bg-black text-white text-xl text-center p-4"
         style={{ zIndex: 2147483647 }}
       >
-        TV não encontrada.
+        TV Code {tvId} não encontrado. Por favor, verifique o código e tente novamente.
       </div>
     )
   }

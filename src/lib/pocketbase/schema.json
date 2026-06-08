@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-20T15:18:54.694Z",
+  "generatedAt": "2026-06-02T01:56:33.192Z",
   "collections": [
     {
       "name": "users",
@@ -55,8 +55,8 @@
       "name": "files",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "",
+        "view": "",
         "create": "@request.auth.id != ''",
         "update": "@request.auth.id != ''",
         "delete": "@request.auth.id != ''"
@@ -127,8 +127,8 @@
       "name": "playlists",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "",
+        "view": "",
         "create": "@request.auth.id != ''",
         "update": "@request.auth.id != ''",
         "delete": "@request.auth.id != ''"
@@ -168,8 +168,8 @@
       "name": "playlist_items",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "",
+        "view": "",
         "create": "@request.auth.id != ''",
         "update": "@request.auth.id != ''",
         "delete": "@request.auth.id != ''"
@@ -222,8 +222,8 @@
       "name": "tvs",
       "type": "base",
       "apiRules": {
-        "list": "@request.auth.id != ''",
-        "view": "@request.auth.id != ''",
+        "list": "user = @request.auth.id || code = @request.query.code",
+        "view": "user = @request.auth.id || code = @request.query.code",
         "create": "user = @request.auth.id",
         "update": "user = @request.auth.id",
         "delete": "user = @request.auth.id"
@@ -340,6 +340,91 @@
         }
       ],
       "indexes": ["CREATE INDEX idx_notifications_user ON notifications (user)"]
+    },
+    {
+      "name": "playlist_schedules",
+      "type": "base",
+      "apiRules": {
+        "list": "",
+        "view": "",
+        "create": "@request.auth.id != ''",
+        "update": "@request.auth.id != ''",
+        "delete": "@request.auth.id != ''"
+      },
+      "fields": [
+        {
+          "name": "playlist",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "playlists"
+        },
+        {
+          "name": "tv",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "tvs"
+        },
+        {
+          "name": "days_of_week",
+          "type": "select",
+          "required": true,
+          "system": false,
+          "selectValues": [
+            "monday",
+            "tuesday",
+            "wednesday",
+            "thursday",
+            "friday",
+            "saturday",
+            "sunday"
+          ]
+        },
+        {
+          "name": "start_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "end_time",
+          "type": "text",
+          "required": true,
+          "system": false
+        },
+        {
+          "name": "active",
+          "type": "bool",
+          "required": false,
+          "system": false
+        },
+        {
+          "name": "user",
+          "type": "relation",
+          "required": true,
+          "system": false,
+          "collectionRef": "users"
+        },
+        {
+          "name": "created",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate"]
+        },
+        {
+          "name": "updated",
+          "type": "autodate",
+          "required": false,
+          "system": false,
+          "autodateTriggers": ["onCreate", "onUpdate"]
+        }
+      ],
+      "indexes": [
+        "CREATE INDEX idx_playlist_schedules_tv ON playlist_schedules (tv)",
+        "CREATE INDEX idx_playlist_schedules_playlist ON playlist_schedules (playlist)"
+      ]
     }
   ]
 }
