@@ -16,9 +16,6 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
   const { user } = useAuth()
   const { toast } = useToast()
 
-  const CLOUD_NAME = 'djr83woxh'
-  const UPLOAD_PRESET = 'ml_default'
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(true)
@@ -59,6 +56,10 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
     let uploadedCount = 0
 
     try {
+      const sigData = await pb.send('/backend/v1/cloudinary/signature', {
+        method: 'GET',
+      })
+
       for (const file of files) {
         const isVideo = file.type.startsWith('video/')
         const isImage = file.type.startsWith('image/')
@@ -84,11 +85,14 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
         }
 
         const resourceType = isVideo ? 'video' : 'image'
-        const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`
+        const endpoint = `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/${resourceType}/upload`
 
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('upload_preset', UPLOAD_PRESET)
+        formData.append('api_key', sigData.api_key)
+        formData.append('timestamp', sigData.timestamp)
+        formData.append('signature', sigData.signature)
+        formData.append('signature_algorithm', 'sha256')
 
         const res = await fetch(endpoint, {
           method: 'POST',
