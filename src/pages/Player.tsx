@@ -97,16 +97,28 @@ export default function Player() {
   const currentItem = playlistItems[currentIndex]
   const currentFile = currentItem?.file
 
+  const extractYouTubeId = (url: string) => {
+    const match = url.match(
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&]{11})/,
+    )
+    return match ? match[1] : null
+  }
+
   useEffect(() => {
     if (!currentFile || !currentItem || playlistItems.length <= 1) return
 
     let timeout: ReturnType<typeof setTimeout>
     const nextIndex = (currentIndex + 1) % playlistItems.length
 
-    if (currentFile.type === 'video') {
-      // Allow video element to control duration via onEnded
+    const isYoutube = currentFile.type === 'video' && !!extractYouTubeId(currentFile.url)
+
+    if (currentFile.type === 'video' && !isYoutube) {
+      // Legacy HTML5 video uses onEnded event below
     } else {
-      const duration = currentItem.duration > 0 ? currentItem.duration * 1000 : 10000
+      let duration = currentItem.duration > 0 ? currentItem.duration * 1000 : 10000
+      if (isYoutube && currentItem.duration === 0) {
+        duration = (currentFile.duration > 0 ? currentFile.duration : 60) * 1000
+      }
       timeout = setTimeout(() => setCurrentIndex(nextIndex), duration)
     }
 
@@ -223,16 +235,26 @@ export default function Player() {
       onClick={handleInteraction}
     >
       {currentFile.type === 'video' ? (
-        <video
-          ref={videoRef}
-          key={currentItem.id}
-          src={currentFile.url}
-          className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
-          playsInline
-          loop={playlistItems.length === 1}
-          onEnded={handleVideoEnded}
-          onError={handleVideoEnded}
-        />
+        extractYouTubeId(currentFile.url) ? (
+          <iframe
+            key={currentItem.id}
+            src={`https://www.youtube.com/embed/${extractYouTubeId(currentFile.url)}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&showinfo=0&modestbranding=1&loop=${playlistItems.length === 1 ? 1 : 0}&playlist=${extractYouTubeId(currentFile.url)}&disablekb=1&iv_load_policy=3`}
+            className="absolute inset-0 h-full w-full pointer-events-none animate-fade-in duration-1000 ease-in-out"
+            allow="autoplay; encrypted-media"
+            frameBorder="0"
+          />
+        ) : (
+          <video
+            ref={videoRef}
+            key={currentItem.id}
+            src={currentFile.url}
+            className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
+            playsInline
+            loop={playlistItems.length === 1}
+            onEnded={handleVideoEnded}
+            onError={handleVideoEnded}
+          />
+        )
       ) : (
         <img
           key={currentItem.id}

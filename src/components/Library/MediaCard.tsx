@@ -139,6 +139,10 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                 disabled={isDeleting || isRenaming}
                 onClick={async () => {
                   try {
+                    if (file.url.includes('youtube.com') || file.url.includes('youtu.be')) {
+                      window.open(file.url, '_blank')
+                      return
+                    }
                     if (file.url.includes('cloudinary.com')) {
                       const urlParts = file.url.split('/upload/')
                       if (urlParts.length === 2) {
@@ -172,9 +176,17 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                     })
                   }
                 }}
-                title="Baixar arquivo"
+                title={
+                  file.url.includes('youtube') || file.url.includes('youtu.be')
+                    ? 'Abrir no YouTube'
+                    : 'Baixar arquivo'
+                }
               >
-                <Download className="h-4 w-4" />
+                {file.url.includes('youtube') || file.url.includes('youtu.be') ? (
+                  <Play className="h-4 w-4" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
               </Button>
               <Button
                 variant="ghost"
@@ -231,7 +243,16 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
         <DialogContent className="max-w-4xl bg-black border-none h-[80vh] flex flex-col items-center justify-center p-0">
           <DialogTitle className="sr-only">Visualizar Mídia</DialogTitle>
           {file.type === 'video' ? (
-            <video src={file.url} controls autoPlay className="w-full h-full object-contain" />
+            file.url.includes('youtube.com') || file.url.includes('youtu.be') ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${file.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&]{11})/)?.[1]}?autoplay=1&rel=0`}
+                className="w-full h-full"
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+              />
+            ) : (
+              <video src={file.url} controls autoPlay className="w-full h-full object-contain" />
+            )
           ) : (
             <img src={file.url} alt={file.name} className="w-full h-full object-contain" />
           )}

@@ -12,14 +12,78 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Search } from 'lucide-react'
+import { Search, Youtube } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function Library() {
   const { toast } = useToast()
+  const { user } = useAuth()
   const [files, setFiles] = useState<any[]>([])
   const [search, setSearch] = useState('')
+  const [isYoutubeOpen, setIsYoutubeOpen] = useState(false)
+  const [ytName, setYtName] = useState('')
+  const [ytUrl, setYtUrl] = useState('')
+  const [ytDuration, setYtDuration] = useState('60')
+  const [isSavingYt, setIsSavingYt] = useState(false)
+
+  const extractYouTubeId = (url: string) => {
+    const match = url.match(
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&]{11})/,
+    )
+    return match ? match[1] : null
+  }
+
+  const handleSaveYoutube = async () => {
+    if (!ytName.trim() || !ytUrl.trim() || !ytDuration) {
+      toast({ title: 'Erro', description: 'Preencha todos os campos.', variant: 'destructive' })
+      return
+    }
+    const ytId = extractYouTubeId(ytUrl)
+    if (!ytId) {
+      toast({ title: 'Erro', description: 'URL do YouTube inválida.', variant: 'destructive' })
+      return
+    }
+
+    setIsSavingYt(true)
+    try {
+      const duration = parseInt(ytDuration, 10)
+      await pb.collection('files').create({
+        name: ytName.trim(),
+        url: ytUrl.trim(),
+        thumbnail: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+        type: 'video',
+        size: 0,
+        duration: isNaN(duration) ? 60 : duration,
+        user: user?.id,
+      })
+      toast({ title: 'Vídeo adicionado', description: 'O vídeo foi adicionado à biblioteca.' })
+      setIsYoutubeOpen(false)
+      setYtName('')
+      setYtUrl('')
+      setYtDuration('60')
+      fetchFiles(false)
+    } catch (err: any) {
+      toast({
+        title: 'Erro',
+        description: getErrorMessage(err) || 'Não foi possível salvar o vídeo.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSavingYt(false)
+    }
+  }
   const [filterType, setFilterType] = useState('all')
   const [isLoading, setIsLoading] = useState(true)
 
@@ -57,9 +121,71 @@ export default function Library() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Biblioteca</h1>
-        <p className="text-muted-foreground">Gerencie suas mídias, vídeos e imagens.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Biblioteca</h1>
+          <p className="text-muted-foreground">Gerencie suas imagens e vídeos do YouTube.</p>
+        </div>
+
+        <Dialog open={isYoutubeOpen} onOpenChange={setIsYoutubeOpen}>
+          <DialogTrigger asChild>
+            <Button className="shrink-0 gap-2">
+              <Youtube className="w-4 h-4" />
+              Adicionar Vídeo do YouTube
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Adicionar Vídeo do YouTube</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="yt-name">Nome do Vídeo</Label>
+                <Input
+                  id="yt-name"
+                  placeholder="Ex: Institucional 2024"
+                  value={ytName}
+                  onChange={(e) => setYtName(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="yt-url">URL do YouTube</Label>
+                <Input
+                  id="yt-url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={ytUrl}
+                  onChange={(e) => setYtUrl(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="yt-duration">Duração (segundos)</Label>
+                <Input
+                  id="yt-duration"
+                  type="number"
+                  placeholder="60"
+                  value={ytDuration}
+                  onChange={(e) => setYtDuration(e.target.value)}
+                  min="1"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tempo que o vídeo será exibido na tela antes de passar para o próximo.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsYoutubeOpen(false)}
+                disabled={isSavingYt}
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveYoutube} disabled={isSavingYt}>
+                {isSavingYt ? 'Salvando...' : 'Adicionar Vídeo'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <UploadZone onUploadSuccess={() => fetchFiles(false)} />

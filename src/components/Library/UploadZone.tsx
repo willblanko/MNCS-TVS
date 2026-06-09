@@ -61,7 +61,6 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
       })
 
       for (const file of files) {
-        const isVideo = file.type.startsWith('video/')
         const isImage = file.type.startsWith('image/')
 
         const fileName = file.name?.trim()
@@ -75,16 +74,16 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
           continue
         }
 
-        if (!isVideo && !isImage) {
+        if (!isImage) {
           toast({
             title: 'Formato não suportado',
-            description: `O arquivo ${fileName} não é uma imagem ou vídeo válido.`,
+            description: `O arquivo ${fileName} não é uma imagem válida. Para vídeos, use a opção do YouTube.`,
             variant: 'destructive',
           })
           continue
         }
 
-        const resourceType = isVideo ? 'video' : 'image'
+        const resourceType = 'image'
         const endpoint = `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/${resourceType}/upload`
 
         const formData = new FormData()
@@ -109,11 +108,7 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
           throw new Error('Falha ao obter a URL do arquivo no Cloudinary')
         }
 
-        const thumbnailUrl = isVideo
-          ? data.secure_url
-              .replace('/upload/', '/upload/w_300,c_fill,q_auto/')
-              .replace(/\.[^/.]+$/, '.jpg')
-          : data.secure_url.replace('/upload/', '/upload/w_300,c_fill,q_auto/')
+        const thumbnailUrl = data.secure_url.replace('/upload/', '/upload/w_300,c_fill,q_auto/')
 
         await pb.collection('files').create({
           name: fileName,
@@ -121,7 +116,7 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
           thumbnail: thumbnailUrl,
           type: resourceType,
           size: data.bytes,
-          duration: isVideo && data.duration ? Math.round(data.duration) : 0,
+          duration: 0,
           user: user.id,
         })
 
@@ -166,7 +161,7 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
         ref={fileInputRef}
         className="hidden"
         multiple
-        accept="image/*,video/*"
+        accept="image/*"
         onChange={handleFileSelect}
       />
       {isUploading ? (
@@ -175,11 +170,10 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
         <UploadCloud className="h-10 w-10 text-muted-foreground mb-4" />
       )}
       <h3 className="font-semibold text-lg mb-1">
-        {isUploading ? 'Enviando arquivos...' : 'Clique ou arraste arquivos aqui'}
+        {isUploading ? 'Enviando arquivos...' : 'Clique ou arraste imagens aqui'}
       </h3>
       <p className="text-sm text-muted-foreground max-w-sm">
-        Suporta imagens (JPG, PNG, WebP) e vídeos (MP4, WebM). O upload é feito diretamente para o
-        Cloudinary.
+        Suporta apenas imagens (JPG, PNG, WebP). O upload é feito diretamente para o Cloudinary.
       </p>
     </div>
   )
