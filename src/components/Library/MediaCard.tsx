@@ -245,7 +245,7 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
           {file.type === 'video' ? (
             file.url.includes('youtube.com') || file.url.includes('youtu.be') ? (
               <iframe
-                src={`https://www.youtube.com/embed/${file.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&]{11})/)?.[1]}?autoplay=1&rel=0`}
+                src={`https://www.youtube.com/embed/${file.url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([^&?]{11})/)?.[1]}?autoplay=1&rel=0`}
                 className="w-full h-full"
                 allow="autoplay; encrypted-media"
                 allowFullScreen

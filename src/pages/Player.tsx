@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 import { AlertCircle, MonitorOff, VolumeX } from 'lucide-react'
 import pb from '@/lib/pocketbase/client'
 import { useRealtime } from '@/hooks/use-realtime'
+import { cn } from '@/lib/utils'
 
 export default function Player() {
   const { tvId } = useParams()
@@ -11,7 +12,7 @@ export default function Player() {
   const [currentTV, setCurrentTV] = useState<any | null>(null)
   const [playlistItems, setPlaylistItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [isMuted, setIsMuted] = useState(false)
+  const [isMuted, setIsMuted] = useState(true)
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const fetchData = async () => {
@@ -99,7 +100,7 @@ export default function Player() {
 
   const extractYouTubeId = (url: string) => {
     const match = url.match(
-      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([^&]{11})/,
+      /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([^&?]{11})/,
     )
     return match ? match[1] : null
   }
@@ -234,35 +235,54 @@ export default function Player() {
       style={{ zIndex: 2147483647 }}
       onClick={handleInteraction}
     >
-      {currentFile.type === 'video' ? (
-        extractYouTubeId(currentFile.url) ? (
-          <iframe
-            key={currentItem.id}
-            src={`https://www.youtube.com/embed/${extractYouTubeId(currentFile.url)}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&showinfo=0&modestbranding=1&loop=${playlistItems.length === 1 ? 1 : 0}&playlist=${extractYouTubeId(currentFile.url)}&disablekb=1&iv_load_policy=3`}
-            className="absolute inset-0 h-full w-full pointer-events-none animate-fade-in duration-1000 ease-in-out"
-            allow="autoplay; encrypted-media"
-            frameBorder="0"
-          />
-        ) : (
-          <video
-            ref={videoRef}
-            key={currentItem.id}
-            src={currentFile.url}
-            className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
-            playsInline
-            loop={playlistItems.length === 1}
-            onEnded={handleVideoEnded}
-            onError={handleVideoEnded}
-          />
-        )
-      ) : (
-        <img
-          key={currentItem.id}
-          src={currentFile.url}
-          alt=""
-          className="absolute inset-0 h-full w-full object-contain animate-fade-in duration-1000 ease-in-out"
-        />
-      )}
+      {playlistItems.map((item, index) => {
+        const file = item.file
+        if (!file) return null
+        const isActive = index === currentIndex
+        const isYoutube = file.type === 'video' && !!extractYouTubeId(file.url)
+
+        if (file.type === 'video') {
+          if (!isActive) return null
+
+          if (isYoutube) {
+            return (
+              <iframe
+                key={item.id}
+                src={`https://www.youtube.com/embed/${extractYouTubeId(file.url)}?autoplay=1&mute=${isMuted ? 1 : 0}&controls=0&rel=0&showinfo=0&modestbranding=1&loop=${playlistItems.length === 1 ? 1 : 0}&playlist=${extractYouTubeId(file.url)}&disablekb=1&iv_load_policy=3`}
+                className="absolute inset-0 h-full w-full pointer-events-none animate-fade-in duration-1000 ease-in-out"
+                allow="autoplay; encrypted-media"
+                frameBorder="0"
+              />
+            )
+          } else {
+            return (
+              <video
+                ref={videoRef}
+                key={item.id}
+                src={file.url}
+                className="absolute inset-0 h-full w-full object-contain pointer-events-none animate-fade-in duration-1000 ease-in-out"
+                playsInline
+                loop={playlistItems.length === 1}
+                onEnded={handleVideoEnded}
+                onError={handleVideoEnded}
+                muted={isMuted}
+              />
+            )
+          }
+        } else {
+          return (
+            <img
+              key={item.id}
+              src={file.url}
+              alt=""
+              className={cn(
+                'absolute inset-0 h-full w-full object-contain pointer-events-none transition-opacity duration-1000 ease-in-out',
+                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0',
+              )}
+            />
+          )
+        }
+      })}
 
       {isMuted && currentFile.type === 'video' && (
         <div className="absolute bottom-8 right-8 z-50 flex items-center gap-2 rounded-full bg-black/50 px-4 py-2 text-white/70 backdrop-blur-md animate-pulse">
