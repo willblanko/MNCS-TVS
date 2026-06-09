@@ -214,10 +214,10 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Excluir arquivo</AlertDialogTitle>
+                    <AlertDialogTitle>Excluir Arquivo</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tem certeza que deseja excluir "{file.name}"? Esta ação removerá o arquivo
-                      permanentemente.
+                      Tem certeza que deseja excluir este arquivo? Esta ação não pode ser desfeita e
+                      removerá o arquivo da biblioteca.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>

@@ -25,9 +25,11 @@ import { Label } from '@/components/ui/label'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useAuth } from '@/hooks/use-auth'
 import { extractFieldErrors } from '@/lib/pocketbase/errors'
+import { useToast } from '@/hooks/use-toast'
 
 export default function TVs() {
   const { user } = useAuth()
+  const { toast } = useToast()
   const [playlists, setPlaylists] = useState<any[]>([])
   const [tvs, setTvs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -109,8 +111,14 @@ export default function TVs() {
   const handleRemoveTV = async (id: string) => {
     try {
       await pb.collection('tvs').delete(id)
+      toast({ title: 'TV removida', description: 'A TV foi removida com sucesso.' })
     } catch (err) {
       console.error(err)
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível remover a TV.',
+        variant: 'destructive',
+      })
     }
   }
 

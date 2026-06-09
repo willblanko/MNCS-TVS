@@ -11,6 +11,17 @@ import { Switch } from '@/components/ui/switch'
 import { Card, CardContent } from '@/components/ui/card'
 import { ExternalLink, Copy, CheckCircle2, CalendarClock } from 'lucide-react'
 import { useState } from 'react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface TVRowProps {
   tv: any
@@ -116,13 +127,34 @@ export function TVRow({
               </a>
             </Button>
           </div>
-          <Button
-            variant="ghost"
-            className="w-full text-destructive hover:bg-destructive/10 mt-2"
-            onClick={() => onRemove(tv.id)}
-          >
-            Remover TV
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full text-destructive hover:bg-destructive/10 mt-2"
+              >
+                Remover TV
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remover TV</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja remover esta TV? Ela deixará de ser gerenciada pelo sistema
+                  e o código de pareamento será invalidado.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onRemove(tv.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Remover
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     )
@@ -201,14 +233,35 @@ export function TVRow({
               <ExternalLink className="h-4 w-4" />
             </a>
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onRemove(tv.id)}
-            className="h-9 text-destructive hover:bg-destructive/10"
-          >
-            Remover
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-9 text-destructive hover:bg-destructive/10"
+              >
+                Remover
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remover TV</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja remover esta TV? Ela deixará de ser gerenciada pelo sistema
+                  e o código de pareamento será invalidado.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onRemove(tv.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Remover
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </TableCell>
     </TableRow>

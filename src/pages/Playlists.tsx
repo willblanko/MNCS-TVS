@@ -13,6 +13,16 @@ import {
 import { PlaylistEditor } from '@/components/Playlists/PlaylistEditor'
 import { useToast } from '@/hooks/use-toast'
 import { getErrorMessage } from '@/lib/pocketbase/errors'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export interface PlaylistData {
   id: string
@@ -31,6 +41,7 @@ export default function Playlists() {
   const [files, setFiles] = useState<any[]>([])
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingPlaylist, setEditingPlaylist] = useState<PlaylistData | null>(null)
+  const [playlistToDelete, setPlaylistToDelete] = useState<PlaylistData | null>(null)
 
   const fetchData = async () => {
     try {
@@ -90,6 +101,7 @@ export default function Playlists() {
       await pb.collection('playlists').delete(id)
       fetchData()
       toast({ title: 'Sucesso', description: 'Playlist removida com sucesso!' })
+      setPlaylistToDelete(null)
     } catch (err: any) {
       toast({
         title: 'Erro',
@@ -154,7 +166,7 @@ export default function Playlists() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => removePlaylist(playlist.id)}
+                      onClick={() => setPlaylistToDelete(playlist)}
                     >
                       <Trash2 className="h-4 w-4 mr-2" /> Excluir
                     </DropdownMenuItem>
@@ -199,6 +211,30 @@ export default function Playlists() {
         onOpenChange={setEditorOpen}
         onSaveSuccess={fetchData}
       />
+
+      <AlertDialog
+        open={!!playlistToDelete}
+        onOpenChange={(open) => !open && setPlaylistToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Playlist</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir esta playlist? Isso removerá permanentemente a lista e
+              suas associações.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => playlistToDelete && removePlaylist(playlistToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
