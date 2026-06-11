@@ -2,7 +2,10 @@ routerAdd(
   'GET',
   '/backend/v1/cloudinary/signature',
   (e) => {
-    const apiSecret = $secrets.get('CLOUDINARY_API_SECRET') || 'vUDKKAoVCkZFklDrShrLWD16eqk'
+    const apiSecret = $os.getenv('CLOUDINARY_API_SECRET')
+    if (!apiSecret) {
+      throw new BadRequestError('CLOUDINARY_API_SECRET não configurado no servidor.')
+    }
     const apiKey = '176365541131129'
     const cloudName = 'dbuklrpso'
 
