@@ -47,14 +47,7 @@ import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast'
 
 async function callManageUsers(body: any) {
-  const { data: sessionData } = await supabase.auth.getSession()
-  const token = sessionData.session?.access_token
-  if (!token) throw new Error('Não autenticado')
-
-  const { data, error } = await supabase.functions.invoke('manage-users', {
-    body,
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const { data, error } = await supabase.functions.invoke('manage-users', { body })
   if (error) {
     const msg = (error as any)?.context
       ? await (error as any).context.json().then((j: any) => j?.error ?? error.message).catch(() => error.message)
