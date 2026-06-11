@@ -3,7 +3,6 @@ import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/s
 import { SidebarNav } from './SidebarNav'
 import { UserCircle, LogOut, User as UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import useMainStore from '@/stores/main'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,8 +14,6 @@ import {
 import { useAuth } from '@/hooks/use-auth'
 
 export default function Layout() {
-  const { files } = useMainStore()
-  const optimizingCount = files.filter((f) => f.status === 'optimizing').length
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
 
@@ -32,12 +29,6 @@ export default function Layout() {
         <header className="flex h-16 shrink-0 items-center justify-between border-b px-4 lg:px-6 bg-background z-10">
           <div className="flex items-center gap-2">
             <SidebarTrigger />
-            {optimizingCount > 0 && (
-              <div className="ml-4 flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-                <span className="flex h-2 w-2 rounded-full bg-primary" />
-                Otimizando {optimizingCount} arquivo(s)...
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-4">
             <DropdownMenu>
