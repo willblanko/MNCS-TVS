@@ -55,7 +55,12 @@ async function callManageUsers(body: any) {
     body,
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (error) throw error
+  if (error) {
+    const msg = (error as any)?.context
+      ? await (error as any).context.json().then((j: any) => j?.error ?? error.message).catch(() => error.message)
+      : error.message
+    throw new Error(msg)
+  }
   if (data?.error) throw new Error(data.error)
   return data
 }
