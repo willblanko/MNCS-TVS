@@ -1,13 +1,20 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
+
+export interface AuthUser extends User {
+  name?: string | null
+  role?: string | null
+  avatar_url?: string | null
+}
 
 interface AuthContextType {
-  user: any
+  user: AuthUser | null
   isAuthenticated: boolean
-  signUp: (email: string, password: string) => Promise<{ error: any }>
   signIn: (email: string, password: string) => Promise<{ error: any }>
   signOut: () => void
   loading: boolean
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -18,56 +25,62 @@ export const useAuth = () => {
   return context
 }
 
+async function mergeProfile(authUser: User): Promise<AuthUser> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('name, role, avatar_url')
+    .eq('id', authUser.id)
+    .single()
+  return { ...authUser, name: data?.name, role: data?.role, avatar_url: data?.avatar_url }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<any>(pb.authStore.isValid ? pb.authStore.record : null)
-  const [isAuthenticated, setIsAuthenticated] = useState(pb.authStore.isValid)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const unsubscribe = pb.authStore.onChange((_token, record) => {
-      setUser(pb.authStore.isValid ? record : null)
-      setIsAuthenticated(pb.authStore.isValid)
-    })
-
-    if (pb.authStore.isValid) {
-      pb.collection('users')
-        .authRefresh()
-        .catch(() => pb.authStore.clear())
-        .finally(() => setLoading(false))
-    } else {
-      if (pb.authStore.record) pb.authStore.clear()
-      setLoading(false)
+  const loadUser = async (authUser: User | null) => {
+    if (!authUser) {
+      setUser(null)
+      return
     }
-    return () => {
-      unsubscribe()
-    }
-  }, [])
-
-  const signUp = async (email: string, password: string) => {
-    try {
-      await pb.collection('users').create({ email, password, passwordConfirm: password })
-      await pb.collection('users').authWithPassword(email, password)
-      return { error: null }
-    } catch (error) {
-      return { error }
-    }
+    const merged = await mergeProfile(authUser)
+    setUser(merged)
   }
 
+  const refreshUser = async () => {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+    await loadUser(authUser)
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      loadUser(session?.user ?? null).finally(() => setLoading(false))
+    })
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      loadUser(session?.user ?? null)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
   const signIn = async (email: string, password: string) => {
-    try {
-      await pb.collection('users').authWithPassword(email, password)
-      return { error: null }
-    } catch (error) {
-      return { error }
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return { error }
   }
 
   const signOut = () => {
-    pb.authStore.clear()
+    supabase.auth.signOut()
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, signUp, signIn, signOut, loading }}>
+    <AuthContext.Provider
+      value={{ user, isAuthenticated: !!user, signIn, signOut, loading, refreshUser }}
+    >
       {children}
     </AuthContext.Provider>
   )

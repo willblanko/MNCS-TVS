@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 import { UploadCloud, Loader2 } from 'lucide-react'
-import { useAuth } from '@/hooks/use-auth'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -13,7 +12,6 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { user } = useAuth()
   const { toast } = useToast()
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -21,124 +19,77 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
     setIsDragging(true)
   }
 
-  const handleDragLeave = () => {
-    setIsDragging(false)
-  }
+  const handleDragLeave = () => setIsDragging(false)
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    if (e.dataTransfer.files?.length) {
       await handleFiles(Array.from(e.dataTransfer.files))
     }
   }
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length) {
       await handleFiles(Array.from(e.target.files))
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
   const handleFiles = async (files: File[]) => {
-    if (!user) {
-      toast({
-        title: 'Não autenticado',
-        description: 'Você precisa estar logado para fazer upload.',
-        variant: 'destructive',
-      })
-      return
-    }
-
     setIsUploading(true)
     let uploadedCount = 0
 
-    try {
-      const sigData = await pb.send('/backend/v1/cloudinary/signature', {
-        method: 'GET',
-      })
-
-      for (const file of files) {
-        const isImage = file.type.startsWith('image/')
-
-        const fileName = file.name?.trim()
-
-        if (!fileName) {
-          toast({
-            title: 'Erro de Validação',
-            description: 'O arquivo deve ter um nome válido.',
-            variant: 'destructive',
-          })
-          continue
-        }
-
-        if (!isImage) {
-          toast({
-            title: 'Formato não suportado',
-            description: `O arquivo ${fileName} não é uma imagem válida. Para vídeos, use a opção do YouTube.`,
-            variant: 'destructive',
-          })
-          continue
-        }
-
-        const resourceType = 'image'
-        const endpoint = `https://api.cloudinary.com/v1_1/${sigData.cloud_name}/${resourceType}/upload`
-
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('api_key', sigData.api_key)
-        formData.append('timestamp', sigData.timestamp)
-        formData.append('signature', sigData.signature)
-        formData.append('signature_algorithm', 'sha256')
-
-        const res = await fetch(endpoint, {
-          method: 'POST',
-          body: formData,
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Formato não suportado',
+          description: `${file.name} não é uma imagem. Para vídeos, use a opção do YouTube.`,
+          variant: 'destructive',
         })
+        continue
+      }
 
-        if (!res.ok) {
-          throw new Error('Falha ao fazer upload para o Cloudinary')
-        }
+      try {
+        const ext = file.name.split('.').pop()
+        const path = `${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
 
-        const data = await res.json()
+        const { error: uploadError } = await supabase.storage.from('media').upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+        })
+        if (uploadError) throw uploadError
 
-        if (!data.secure_url) {
-          throw new Error('Falha ao obter a URL do arquivo no Cloudinary')
-        }
+        const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path)
 
-        const thumbnailUrl = data.secure_url.replace('/upload/', '/upload/w_300,c_fill,q_auto/')
-
-        await pb.collection('files').create({
-          name: fileName,
-          url: data.secure_url,
-          thumbnail: thumbnailUrl,
-          type: resourceType,
-          size: data.bytes,
+        const { error: dbError } = await supabase.from('files').insert({
+          name: file.name,
+          url: publicUrl,
+          thumbnail: publicUrl,
+          type: 'image',
+          original_size: file.size,
+          optimized_size: file.size,
           duration: 0,
-          user: user.id,
         })
+        if (dbError) throw dbError
 
         uploadedCount++
-      }
-
-      if (uploadedCount > 0) {
+      } catch (err: any) {
         toast({
-          title: 'Upload concluído',
-          description: `${uploadedCount} arquivo(s) enviado(s) com sucesso.`,
+          title: `Erro ao enviar ${file.name}`,
+          description: err.message || 'Falha no upload.',
+          variant: 'destructive',
         })
-        onUploadSuccess()
       }
-    } catch (err: any) {
-      console.error('Upload error', err)
+    }
+
+    setIsUploading(false)
+    if (uploadedCount > 0) {
       toast({
-        title: 'Erro no upload',
-        description: 'Não foi possível enviar os arquivos. Verifique a conexão com o Cloudinary.',
-        variant: 'destructive',
+        title: 'Upload concluído',
+        description: `${uploadedCount} arquivo(s) enviado(s) com sucesso.`,
       })
-    } finally {
-      setIsUploading(false)
+      onUploadSuccess()
     }
   }
 
@@ -173,7 +124,7 @@ export function UploadZone({ onUploadSuccess }: UploadZoneProps) {
         {isUploading ? 'Enviando arquivos...' : 'Clique ou arraste imagens aqui'}
       </h3>
       <p className="text-sm text-muted-foreground max-w-sm">
-        Suporta apenas imagens (JPG, PNG, WebP). O upload é feito diretamente para o Cloudinary.
+        Suporta imagens (JPG, PNG, WebP). Para vídeos, use o botão "Adicionar Vídeo do YouTube".
       </p>
     </div>
   )

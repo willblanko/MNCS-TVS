@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { CalendarClock, Plus, Pencil, Trash2 } from 'lucide-react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
-import useRealtime from '@/hooks/use-realtime'
+import { useRealtime } from '@/hooks/use-realtime'
 import {
   getPlaylistSchedules,
   createPlaylistSchedule,
@@ -10,7 +10,7 @@ import {
   deletePlaylistSchedule,
   type PlaylistSchedule,
 } from '@/services/playlist_schedules'
-import { extractFieldErrors, getErrorMessage, type FieldErrors } from '@/lib/pocketbase/errors'
+import { getErrorMessage, type FieldErrors } from '@/lib/supabase/errors'
 import { useToast } from '@/hooks/use-toast'
 
 import { Button } from '@/components/ui/button'
@@ -59,8 +59,8 @@ export default function Schedules() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   const [formData, setFormData] = useState({
-    playlist: '',
-    tv: '',
+    playlist_id: '',
+    tv_id: '',
     days_of_week: [] as string[],
     start_time: '08:00',
     end_time: '18:00',
@@ -68,39 +68,28 @@ export default function Schedules() {
   })
 
   const loadData = async () => {
-    try {
-      const [schedulesRes, playlistsRes, tvsRes] = await Promise.all([
-        getPlaylistSchedules(),
-        pb.collection('playlists').getFullList({ sort: 'name' }),
-        pb.collection('tvs').getFullList({ sort: 'name' }),
-      ])
-      setSchedules(schedulesRes)
-      setPlaylists(playlistsRes)
-      setTvs(tvsRes)
-    } catch (err) {
-      toast({
-        title: 'Erro ao carregar dados',
-        description: getErrorMessage(err),
-        variant: 'destructive',
-      })
-    }
+    const [schedulesRes, { data: playlistsData }, { data: tvsData }] = await Promise.all([
+      getPlaylistSchedules(),
+      supabase.from('playlists').select('id, name').order('name'),
+      supabase.from('tvs').select('id, name').order('name'),
+    ])
+    setSchedules(schedulesRes)
+    setPlaylists(playlistsData ?? [])
+    setTvs(tvsData ?? [])
   }
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  useRealtime('playlist_schedules', () => loadData())
-  useRealtime('playlists', () => loadData())
-  useRealtime('tvs', () => loadData())
+  useEffect(() => { loadData() }, [])
+  useRealtime('playlist_schedules', loadData)
+  useRealtime('playlists', loadData)
+  useRealtime('tvs', loadData)
 
   const openDialog = (schedule?: PlaylistSchedule) => {
     setFieldErrors({})
     if (schedule) {
       setEditingId(schedule.id)
       setFormData({
-        playlist: schedule.playlist,
-        tv: schedule.tv,
+        playlist_id: schedule.playlist_id,
+        tv_id: schedule.tv_id,
         days_of_week: schedule.days_of_week || [],
         start_time: schedule.start_time,
         end_time: schedule.end_time,
@@ -109,8 +98,8 @@ export default function Schedules() {
     } else {
       setEditingId(null)
       setFormData({
-        playlist: '',
-        tv: '',
+        playlist_id: '',
+        tv_id: '',
         days_of_week: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         start_time: '08:00',
         end_time: '18:00',
@@ -131,7 +120,7 @@ export default function Schedules() {
         return
       }
 
-      const payload = { ...formData, user: user?.id }
+      const payload = { ...formData, user_id: user?.id }
 
       if (editingId) {
         await updatePlaylistSchedule(editingId, payload)
@@ -142,7 +131,6 @@ export default function Schedules() {
       }
       setIsDialogOpen(false)
     } catch (err) {
-      setFieldErrors(extractFieldErrors(err))
       toast({ title: 'Erro ao salvar', description: getErrorMessage(err), variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -195,7 +183,7 @@ export default function Schedules() {
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start gap-2">
                 <CardTitle className="text-lg line-clamp-1">
-                  {s.expand?.playlist?.name || 'Playlist Desconhecida'}
+                  {s.playlists?.name || 'Playlist Desconhecida'}
                 </CardTitle>
                 <Badge variant={s.active ? 'default' : 'secondary'}>
                   {s.active ? 'Ativo' : 'Inativo'}
@@ -203,7 +191,7 @@ export default function Schedules() {
               </div>
               <CardDescription className="flex items-center gap-1 line-clamp-1">
                 <CalendarClock className="w-3 h-3 flex-shrink-0" />
-                <span>{s.expand?.tv?.name || 'TV Desconhecida'}</span>
+                <span>{s.tvs?.name || 'TV Desconhecida'}</span>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -225,20 +213,10 @@ export default function Schedules() {
                     {s.start_time} - {s.end_time}
                   </span>
                   <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => openDialog(s)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDialog(s)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={() => handleDelete(s.id)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(s.id)}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -262,46 +240,37 @@ export default function Schedules() {
             <div className="grid gap-2">
               <Label htmlFor="tv">TV</Label>
               <Select
-                value={formData.tv}
-                onValueChange={(val) => setFormData((prev) => ({ ...prev, tv: val }))}
+                value={formData.tv_id}
+                onValueChange={(val) => setFormData((prev) => ({ ...prev, tv_id: val }))}
               >
-                <SelectTrigger id="tv" className={fieldErrors.tv ? 'border-destructive' : ''}>
+                <SelectTrigger id="tv" className={fieldErrors.tv_id ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Selecione a TV" />
                 </SelectTrigger>
                 <SelectContent>
                   {tvs.map((tv) => (
-                    <SelectItem key={tv.id} value={tv.id}>
-                      {tv.name}
-                    </SelectItem>
+                    <SelectItem key={tv.id} value={tv.id}>{tv.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {fieldErrors.tv && <p className="text-xs text-destructive">{fieldErrors.tv}</p>}
+              {fieldErrors.tv_id && <p className="text-xs text-destructive">{fieldErrors.tv_id}</p>}
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="playlist">Playlist</Label>
               <Select
-                value={formData.playlist}
-                onValueChange={(val) => setFormData((prev) => ({ ...prev, playlist: val }))}
+                value={formData.playlist_id}
+                onValueChange={(val) => setFormData((prev) => ({ ...prev, playlist_id: val }))}
               >
-                <SelectTrigger
-                  id="playlist"
-                  className={fieldErrors.playlist ? 'border-destructive' : ''}
-                >
+                <SelectTrigger id="playlist" className={fieldErrors.playlist_id ? 'border-destructive' : ''}>
                   <SelectValue placeholder="Selecione a Playlist" />
                 </SelectTrigger>
                 <SelectContent>
                   {playlists.map((pl) => (
-                    <SelectItem key={pl.id} value={pl.id}>
-                      {pl.name}
-                    </SelectItem>
+                    <SelectItem key={pl.id} value={pl.id}>{pl.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {fieldErrors.playlist && (
-                <p className="text-xs text-destructive">{fieldErrors.playlist}</p>
-              )}
+              {fieldErrors.playlist_id && <p className="text-xs text-destructive">{fieldErrors.playlist_id}</p>}
             </div>
 
             <div className="grid gap-2">
@@ -318,9 +287,7 @@ export default function Schedules() {
                   </Badge>
                 ))}
               </div>
-              {fieldErrors.days_of_week && (
-                <p className="text-xs text-destructive">{fieldErrors.days_of_week}</p>
-              )}
+              {fieldErrors.days_of_week && <p className="text-xs text-destructive">{fieldErrors.days_of_week}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -333,9 +300,7 @@ export default function Schedules() {
                   onChange={(e) => setFormData((prev) => ({ ...prev, start_time: e.target.value }))}
                   className={fieldErrors.start_time ? 'border-destructive' : ''}
                 />
-                {fieldErrors.start_time && (
-                  <p className="text-xs text-destructive">{fieldErrors.start_time}</p>
-                )}
+                {fieldErrors.start_time && <p className="text-xs text-destructive">{fieldErrors.start_time}</p>}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="end_time">Hora de Término</Label>
@@ -346,9 +311,7 @@ export default function Schedules() {
                   onChange={(e) => setFormData((prev) => ({ ...prev, end_time: e.target.value }))}
                   className={fieldErrors.end_time ? 'border-destructive' : ''}
                 />
-                {fieldErrors.end_time && (
-                  <p className="text-xs text-destructive">{fieldErrors.end_time}</p>
-                )}
+                {fieldErrors.end_time && <p className="text-xs text-destructive">{fieldErrors.end_time}</p>}
               </div>
             </div>
 
@@ -358,21 +321,15 @@ export default function Schedules() {
                 checked={formData.active}
                 onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, active: checked }))}
               />
-              <Label htmlFor="active" className="cursor-pointer">
-                Agendamento Ativo
-              </Label>
+              <Label htmlFor="active" className="cursor-pointer">Agendamento Ativo</Label>
             </div>
           </div>
 
           <DialogFooter className="sm:justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
             <Button
               onClick={handleSave}
-              disabled={
-                loading || !formData.tv || !formData.playlist || formData.days_of_week.length === 0
-              }
+              disabled={loading || !formData.tv_id || !formData.playlist_id || formData.days_of_week.length === 0}
             >
               {loading ? 'Salvando...' : 'Salvar'}
             </Button>

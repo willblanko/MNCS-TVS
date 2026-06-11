@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { TVRow } from '@/components/TVs/TVRow'
 import {
   Table,
@@ -23,12 +23,21 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRealtime } from '@/hooks/use-realtime'
-import { useAuth } from '@/hooks/use-auth'
-import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
+import { getErrorMessage } from '@/lib/supabase/errors'
 import { useToast } from '@/hooks/use-toast'
 
+function generateId(name: string): string {
+  const base = name
+    .normalize('NFD')
+    .replace(/\p{Mn}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const suffix = Math.random().toString(36).substring(2, 6)
+  return base ? `${base}-${suffix}` : suffix
+}
+
 export default function TVs() {
-  const { user } = useAuth()
   const { toast } = useToast()
   const [playlists, setPlaylists] = useState<any[]>([])
   const [tvs, setTvs] = useState<any[]>([])
@@ -37,34 +46,20 @@ export default function TVs() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newTvName, setNewTvName] = useState('')
   const [newTvCode, setNewTvCode] = useState('')
-  const [fieldErrors, setFieldErrors] = useState<any>({})
+  const [newTvLocation, setNewTvLocation] = useState('')
   const [generalError, setGeneralError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [scheduleTv, setScheduleTv] = useState<any>(null)
 
   const fetchTVs = async () => {
-    try {
-      if (!user?.id) return
-      const data = await pb
-        .collection('tvs')
-        .getFullList({ sort: 'created', filter: `user="${user.id}"` })
-      setTvs(data)
-    } catch {
-      /* intentionally ignored */
-    }
+    const { data } = await supabase.from('tvs').select().order('created_at')
+    setTvs(data ?? [])
     setLoading(false)
   }
 
   const fetchPlaylists = async () => {
-    try {
-      if (!user?.id) return
-      const data = await pb
-        .collection('playlists')
-        .getFullList({ sort: 'name', filter: `user="${user.id}"` })
-      setPlaylists(data)
-    } catch {
-      /* intentionally ignored */
-    }
+    const { data } = await supabase.from('playlists').select('id, name').order('name')
+    setPlaylists(data ?? [])
   }
 
   useEffect(() => {
@@ -72,70 +67,48 @@ export default function TVs() {
     fetchPlaylists()
   }, [])
 
-  useRealtime('tvs', () => {
-    fetchTVs()
-  })
-  useRealtime('playlists', () => {
-    fetchPlaylists()
-  })
+  useRealtime('tvs', fetchTVs)
+  useRealtime('playlists', fetchPlaylists)
 
   const handleAddTV = async (e: React.FormEvent) => {
     e.preventDefault()
-    setFieldErrors({})
     setGeneralError('')
     setSubmitting(true)
 
     try {
-      const normalized = newTvName
-        .normalize('NFD')
-        .replace(/\p{Mn}/gu, '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-      const suffix = Math.random().toString(36).substring(2, 6)
-      const code = newTvCode || (normalized ? `${normalized}-${suffix}` : suffix)
-
-      await pb.collection('tvs').create({
+      const id = newTvCode || generateId(newTvName)
+      const { error } = await supabase.from('tvs').insert({
+        id,
         name: newTvName,
-        code: code,
+        location: newTvLocation || '',
         status: 'offline',
-        user: user?.id,
       })
+      if (error) throw error
 
       setIsAddDialogOpen(false)
       setNewTvName('')
       setNewTvCode('')
-    } catch (err: any) {
-      const fields = extractFieldErrors(err)
-      if (Object.keys(fields).length > 0) {
-        setFieldErrors(fields)
-      } else {
-        setGeneralError(getErrorMessage(err))
-      }
+      setNewTvLocation('')
+    } catch (err) {
+      setGeneralError(getErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleUpdateTV = async (id: string, updates: any) => {
-    try {
-      await pb.collection('tvs').update(id, updates)
-    } catch (err) {
-      console.error(err)
+    const { error } = await supabase.from('tvs').update(updates).eq('id', id)
+    if (error) {
+      toast({ title: 'Erro', description: getErrorMessage(error), variant: 'destructive' })
     }
   }
 
   const handleRemoveTV = async (id: string) => {
-    try {
-      await pb.collection('tvs').delete(id)
+    const { error } = await supabase.from('tvs').delete().eq('id', id)
+    if (error) {
+      toast({ title: 'Erro', description: 'Não foi possível remover a TV.', variant: 'destructive' })
+    } else {
       toast({ title: 'TV removida', description: 'A TV foi removida com sucesso.' })
-    } catch (err) {
-      console.error(err)
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível remover a TV.',
-        variant: 'destructive',
-      })
     }
   }
 
@@ -154,10 +127,7 @@ export default function TVs() {
       <Dialog
         open={isAddDialogOpen}
         onOpenChange={(open) => {
-          if (!open) {
-            setGeneralError('')
-            setFieldErrors({})
-          }
+          if (!open) { setGeneralError(''); setNewTvName(''); setNewTvCode(''); setNewTvLocation('') }
           setIsAddDialogOpen(open)
         }}
       >
@@ -182,9 +152,15 @@ export default function TVs() {
                   placeholder="Ex: Recepção, Refeitório..."
                   required
                 />
-                {fieldErrors.name && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
-                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="location">Localização (Opcional)</Label>
+                <Input
+                  id="location"
+                  value={newTvLocation}
+                  onChange={(e) => setNewTvLocation(e.target.value)}
+                  placeholder="Ex: Andar 2, Corredor B..."
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="code">Código de Acesso (Opcional)</Label>
@@ -195,11 +171,8 @@ export default function TVs() {
                   placeholder="Ex: recepcao-1"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Será gerado automaticamente se vazio.
+                  Gerado automaticamente se vazio. Usado na URL do player.
                 </p>
-                {fieldErrors.code && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.code}</p>
-                )}
               </div>
             </div>
             <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">

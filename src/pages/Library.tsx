@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { UploadZone } from '@/components/Library/UploadZone'
 import { MediaCard } from '@/components/Library/MediaCard'
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/select'
 import { Search, Youtube } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { getErrorMessage } from '@/lib/supabase/errors'
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,8 @@ export default function Library() {
   const [ytUrl, setYtUrl] = useState('')
   const [ytDuration, setYtDuration] = useState('60')
   const [isSavingYt, setIsSavingYt] = useState(false)
+  const [filterType, setFilterType] = useState('all')
+  const [isLoading, setIsLoading] = useState(true)
 
   const extractYouTubeId = (url: string) => {
     const match = url.match(
@@ -44,6 +46,19 @@ export default function Library() {
     )
     return match ? match[1] : null
   }
+
+  const fetchFiles = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true)
+    const { data, error } = await supabase.from('files').select().order('created_at', { ascending: false })
+    if (error && showLoading) {
+      toast({ title: 'Erro', description: getErrorMessage(error), variant: 'destructive' })
+    }
+    setFiles(data ?? [])
+    if (showLoading) setIsLoading(false)
+  }
+
+  useEffect(() => { fetchFiles(true) }, [])
+  useRealtime('files', () => fetchFiles(false))
 
   const handleSaveYoutube = async () => {
     if (!ytName.trim() || !ytUrl.trim() || !ytDuration) {
@@ -57,61 +72,29 @@ export default function Library() {
     }
 
     setIsSavingYt(true)
-    try {
-      const duration = parseInt(ytDuration, 10)
-      await pb.collection('files').create({
-        name: ytName.trim(),
-        url: ytUrl.trim(),
-        thumbnail: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
-        type: 'video',
-        size: 0,
-        duration: isNaN(duration) ? 60 : duration,
-        user: user?.id,
-      })
+    const duration = parseInt(ytDuration, 10)
+    const { error } = await supabase.from('files').insert({
+      name: ytName.trim(),
+      url: ytUrl.trim(),
+      thumbnail: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`,
+      type: 'video',
+      original_size: 0,
+      optimized_size: 0,
+      duration: isNaN(duration) ? 60 : duration,
+    })
+    setIsSavingYt(false)
+
+    if (error) {
+      toast({ title: 'Erro', description: getErrorMessage(error), variant: 'destructive' })
+    } else {
       toast({ title: 'Vídeo adicionado', description: 'O vídeo foi adicionado à biblioteca.' })
       setIsYoutubeOpen(false)
       setYtName('')
       setYtUrl('')
       setYtDuration('60')
       fetchFiles(false)
-    } catch (err: any) {
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Não foi possível salvar o vídeo.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSavingYt(false)
     }
   }
-  const [filterType, setFilterType] = useState('all')
-  const [isLoading, setIsLoading] = useState(true)
-
-  const fetchFiles = async (showLoading = true) => {
-    if (showLoading) setIsLoading(true)
-    try {
-      const data = await pb.collection('files').getFullList({ sort: '-created' })
-      setFiles(data)
-    } catch (err: any) {
-      if (!err.isAbort) {
-        toast({
-          title: 'Erro',
-          description: getErrorMessage(err) || 'Falha ao carregar arquivos.',
-          variant: 'destructive',
-        })
-      }
-    } finally {
-      if (showLoading) setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchFiles(true)
-  }, [])
-
-  useRealtime('files', () => {
-    fetchFiles(false)
-  })
 
   const filteredFiles = files.filter((f) => {
     if (filterType !== 'all' && f.type !== filterType) return false
@@ -173,11 +156,7 @@ export default function Library() {
               </div>
             </div>
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsYoutubeOpen(false)}
-                disabled={isSavingYt}
-              >
+              <Button variant="outline" onClick={() => setIsYoutubeOpen(false)} disabled={isSavingYt}>
                 Cancelar
               </Button>
               <Button onClick={handleSaveYoutube} disabled={isSavingYt}>

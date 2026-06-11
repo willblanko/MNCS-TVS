@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PlaylistEditor } from '@/components/Playlists/PlaylistEditor'
 import { useToast } from '@/hooks/use-toast'
-import { getErrorMessage } from '@/lib/pocketbase/errors'
+import { getErrorMessage } from '@/lib/supabase/errors'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,47 +44,33 @@ export default function Playlists() {
   const [playlistToDelete, setPlaylistToDelete] = useState<PlaylistData | null>(null)
 
   const fetchData = async () => {
-    try {
-      const filesData = await pb.collection('files').getFullList()
-      setFiles(filesData)
+    const [{ data: filesData }, { data: playlistsData }, { data: itemsData }] = await Promise.all([
+      supabase.from('files').select(),
+      supabase.from('playlists').select(),
+      supabase.from('playlist_items').select().order('order'),
+    ])
 
-      const playlistsData = await pb.collection('playlists').getFullList()
-      const itemsData = await pb.collection('playlist_items').getFullList({ sort: 'sort_order' })
+    setFiles(filesData ?? [])
 
-      const mappedPlaylists = playlistsData.map((p) => ({
-        id: p.id,
-        name: p.name,
-        items: itemsData
-          .filter((i) => i.playlist === p.id)
-          .map((i) => ({
-            id: i.id,
-            fileId: i.file,
-            duration: i.duration || 10,
-            order: i.sort_order,
-          })),
-      }))
-      setPlaylists(mappedPlaylists)
-    } catch (err: any) {
-      if (!err.isAbort) {
-        toast({
-          title: 'Erro',
-          description: getErrorMessage(err) || 'Falha ao carregar playlists.',
-          variant: 'destructive',
-        })
-      }
-    }
+    const allItems = itemsData ?? []
+    const mappedPlaylists = (playlistsData ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      items: allItems
+        .filter((i) => i.playlist_id === p.id)
+        .map((i) => ({
+          id: i.id,
+          fileId: i.file_id,
+          duration: i.duration || 10,
+          order: i.order,
+        })),
+    }))
+    setPlaylists(mappedPlaylists)
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
-
-  useRealtime('playlists', () => {
-    fetchData()
-  })
-  useRealtime('playlist_items', () => {
-    fetchData()
-  })
+  useEffect(() => { fetchData() }, [])
+  useRealtime('playlists', fetchData)
+  useRealtime('playlist_items', fetchData)
 
   const handleEdit = (playlist: PlaylistData) => {
     setEditingPlaylist(playlist)
@@ -97,17 +83,13 @@ export default function Playlists() {
   }
 
   const removePlaylist = async (id: string) => {
-    try {
-      await pb.collection('playlists').delete(id)
-      fetchData()
+    const { error } = await supabase.from('playlists').delete().eq('id', id)
+    if (error) {
+      toast({ title: 'Erro', description: getErrorMessage(error), variant: 'destructive' })
+    } else {
       toast({ title: 'Sucesso', description: 'Playlist removida com sucesso!' })
       setPlaylistToDelete(null)
-    } catch (err: any) {
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Não foi possível remover a playlist',
-        variant: 'destructive',
-      })
+      fetchData()
     }
   }
 
@@ -116,7 +98,7 @@ export default function Playlists() {
     playlist.items.forEach((item) => {
       const file = files.find((f) => f.id === item.fileId)
       if (file?.type === 'video') {
-        total += file.duration || item.duration || 30 // Aproximação de duração para vídeos
+        total += file.duration || item.duration || 30
       } else {
         total += item.duration
       }

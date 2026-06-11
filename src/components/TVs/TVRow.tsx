@@ -32,21 +32,12 @@ interface TVRowProps {
   isMobile?: boolean
 }
 
-export function TVRow({
-  tv,
-  playlists,
-  onUpdate,
-  onRemove,
-  onManageSchedules,
-  isMobile,
-}: TVRowProps) {
+export function TVRow({ tv, playlists, onUpdate, onRemove, onManageSchedules, isMobile }: TVRowProps) {
   const [copied, setCopied] = useState(false)
 
-  const hasCode = !!tv.code
-  const playerUrl = hasCode ? `${window.location.origin}/player/${tv.code}` : ''
+  const playerUrl = `${window.location.origin}/player/${tv.id}`
 
   const copyUrl = () => {
-    if (!hasCode) return
     navigator.clipboard.writeText(playerUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -59,8 +50,11 @@ export function TVRow({
           <div className="flex justify-between items-start gap-2">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-base truncate">{tv.name}</div>
-              <div className="text-xs text-muted-foreground">
-                Código: {tv.code || <span className="text-yellow-600">sem código</span>}
+              {tv.location && (
+                <div className="text-xs text-muted-foreground">{tv.location}</div>
+              )}
+              <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                Código: {tv.id}
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
@@ -84,9 +78,9 @@ export function TVRow({
           <div className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Playlist Ativa</span>
             <Select
-              value={tv.current_playlist || 'none'}
+              value={tv.playlist_id || 'none'}
               onValueChange={(val) =>
-                onUpdate(tv.id, { current_playlist: val === 'none' ? null : val })
+                onUpdate(tv.id, { playlist_id: val === 'none' ? null : val })
               }
             >
               <SelectTrigger className="w-full h-10 text-sm">
@@ -104,51 +98,27 @@ export function TVRow({
           </div>
 
           <div className="flex gap-2 pt-2 border-t mt-4">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onManageSchedules}
-              title="Agendamentos"
-            >
+            <Button variant="outline" className="flex-1" onClick={onManageSchedules} title="Agendamentos">
               <CalendarClock className="h-4 w-4 mr-2" /> Agendamentos
             </Button>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={copyUrl}
-              title="Copiar Link"
-              disabled={!hasCode}
-            >
+            <Button variant="outline" className="flex-1" onClick={copyUrl} title="Copiar Link">
               {copied ? (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" /> Copiado
-                </>
+                <><CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" /> Copiado</>
               ) : (
-                <>
-                  <Copy className="h-4 w-4 mr-2" /> Copiar Link
-                </>
+                <><Copy className="h-4 w-4 mr-2" /> Copiar Link</>
               )}
             </Button>
-            {hasCode ? (
-              <Button variant="secondary" className="flex-1" asChild>
-                <a href={`/player/${tv.code}`} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir
-                </a>
-              </Button>
-            ) : (
-              <Button variant="secondary" className="flex-1" disabled>
+            <Button variant="secondary" className="flex-1" asChild>
+              <a href={`/player/${tv.id}`} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-4 w-4 mr-2" /> Abrir
-              </Button>
-            )}
+              </a>
+            </Button>
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                className="w-full text-destructive hover:bg-destructive/10 mt-2"
-              >
+              <Button variant="ghost" className="w-full text-destructive hover:bg-destructive/10 mt-2">
                 Remover TV
               </Button>
             </AlertDialogTrigger>
@@ -156,8 +126,7 @@ export function TVRow({
               <AlertDialogHeader>
                 <AlertDialogTitle>Remover TV</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja remover esta TV? Ela deixará de ser gerenciada pelo sistema
-                  e o código de pareamento será invalidado.
+                  Tem certeza que deseja remover esta TV? O código de acesso será invalidado.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -180,9 +149,8 @@ export function TVRow({
     <TableRow>
       <TableCell className="font-medium">
         <div className="text-base">{tv.name}</div>
-        <div className="text-xs text-muted-foreground">
-          Código: {tv.code || <span className="text-yellow-600">sem código</span>}
-        </div>
+        {tv.location && <div className="text-xs text-muted-foreground">{tv.location}</div>}
+        <div className="text-xs text-muted-foreground font-mono">Código: {tv.id}</div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
@@ -205,9 +173,9 @@ export function TVRow({
       </TableCell>
       <TableCell>
         <Select
-          value={tv.current_playlist || 'none'}
+          value={tv.playlist_id || 'none'}
           onValueChange={(val) =>
-            onUpdate(tv.id, { current_playlist: val === 'none' ? null : val })
+            onUpdate(tv.id, { playlist_id: val === 'none' ? null : val })
           }
         >
           <SelectTrigger className="w-full sm:w-[200px] h-9 text-sm">
@@ -225,52 +193,20 @@ export function TVRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onManageSchedules}
-            className="h-9"
-            title="Agendamentos"
-          >
+          <Button variant="outline" size="sm" onClick={onManageSchedules} className="h-9" title="Agendamentos">
             <CalendarClock className="h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={copyUrl}
-            className="h-9"
-            title="Copiar Link"
-            disabled={!hasCode}
-          >
-            {copied ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            ) : (
-              <Copy className="h-4 w-4" />
-            )}
+          <Button variant="outline" size="sm" onClick={copyUrl} className="h-9" title="Copiar Link">
+            {copied ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
           </Button>
-          {hasCode ? (
-            <Button variant="secondary" size="sm" asChild className="h-9">
-              <a
-                href={`/player/${tv.code}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="Abrir Player"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </Button>
-          ) : (
-            <Button variant="secondary" size="sm" className="h-9" disabled title="Sem código">
+          <Button variant="secondary" size="sm" asChild className="h-9">
+            <a href={`/player/${tv.id}`} target="_blank" rel="noopener noreferrer" title="Abrir Player">
               <ExternalLink className="h-4 w-4" />
-            </Button>
-          )}
+            </a>
+          </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-9 text-destructive hover:bg-destructive/10"
-              >
+              <Button variant="ghost" size="sm" className="h-9 text-destructive hover:bg-destructive/10">
                 Remover
               </Button>
             </AlertDialogTrigger>
@@ -278,8 +214,7 @@ export function TVRow({
               <AlertDialogHeader>
                 <AlertDialogTitle>Remover TV</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Tem certeza que deseja remover esta TV? Ela deixará de ser gerenciada pelo sistema
-                  e o código de pareamento será invalidado.
+                  Tem certeza que deseja remover esta TV? O código de acesso será invalidado.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

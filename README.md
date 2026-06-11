@@ -1,131 +1,111 @@
-# Projeto Criado com o Skip
+# MNCS TVs — Sistema de Gerenciamento de Telas
 
-Este projeto foi criado de ponta a ponta com o [Skip](https://goskip.dev).
+Sistema web para gerenciar TVs, playlists e agendamentos de exibição de conteúdo.
 
-## 🚀 Stack Tecnológica
+## Stack
 
-- **React 19** - Biblioteca JavaScript para construção de interfaces
-- **Vite** - Build tool extremamente rápida
-- **TypeScript** - Superset tipado do JavaScript
-- **Shadcn UI** - Componentes reutilizáveis e acessíveis
-- **Tailwind CSS** - Framework CSS utility-first
-- **React Router** - Roteamento para aplicações React
-- **React Hook Form** - Gerenciamento de formulários performático
-- **Zod** - Validação de schemas TypeScript-first
-- **Recharts** - Biblioteca de gráficos para React
+- **React 19** + **Vite** + **TypeScript**
+- **Shadcn UI** + **Tailwind CSS**
+- **React Router** (SPA com roteamento client-side)
+- **Supabase** — autenticação, banco de dados, storage e realtime
 
-## 📋 Pré-requisitos
+## Pré-requisitos
 
 - Node.js 18+
-- npm
+- Conta no [Supabase](https://supabase.com)
+- Conta no [Vercel](https://vercel.com) (para deploy)
+- Conta no [Resend](https://resend.com) (para e-mails de redefinição de senha)
 
-## 🔧 Instalação
+## Configuração
+
+### 1. Variáveis de ambiente
+
+Copie `.env.example` para `.env.local` e preencha:
+
+```bash
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-anon-key-aqui
+```
+
+No Vercel, configure essas mesmas variáveis em **Settings → Environment Variables**.
+
+### 2. Banco de dados (Supabase)
+
+Execute as migrations da pasta `supabase/migrations/` no **SQL Editor** do seu projeto Supabase, em ordem cronológica.
+
+### 3. Storage (Supabase)
+
+Crie dois buckets públicos no Supabase Storage:
+- `media` — para imagens enviadas pela biblioteca
+- `avatars` — para fotos de perfil dos usuários
+
+### 4. Redefinição de senha via Resend
+
+No painel do Supabase, vá em **Authentication → Settings → SMTP**:
+
+| Campo    | Valor                      |
+|----------|----------------------------|
+| Host     | `smtp.resend.com`          |
+| Port     | `465`                      |
+| Username | `resend`                   |
+| Password | sua API Key do Resend      |
+| Sender   | `noreply@seudominio.com`   |
+
+Também configure em **Authentication → URL Configuration**:
+- **Site URL**: URL do seu app no Vercel (ex: `https://mncs-tvs.vercel.app`)
+- **Redirect URLs**: `https://mncs-tvs.vercel.app/redefinir-senha`
+
+### 5. Edge Function
+
+Faça deploy da Edge Function de gerenciamento de usuários:
+
+```bash
+npx supabase functions deploy manage-users
+```
+
+## Desenvolvimento local
 
 ```bash
 npm install
-```
-
-## 💻 Scripts Disponíveis
-
-### Desenvolvimento
-
-```bash
-# Iniciar servidor de desenvolvimento
-npm start
-# ou
 npm run dev
 ```
 
-Abre a aplicação em modo de desenvolvimento em [http://localhost:5173](http://localhost:5173).
+Acesse em [http://localhost:5173](http://localhost:5173).
 
-### Build
+## Deploy (Vercel)
 
-```bash
-# Build para produção
-npm run build
+O repositório está integrado ao Vercel. Cada push para `main` aciona um deploy automático. O arquivo `vercel.json` configura o roteamento SPA para evitar erros 404 ao recarregar páginas.
 
-# Build para desenvolvimento
-npm run build:dev
-```
-
-Gera os arquivos otimizados para produção na pasta `dist/`.
-
-### Preview
+## Scripts
 
 ```bash
-# Visualizar build de produção localmente
-npm run preview
+npm run dev        # servidor de desenvolvimento
+npm run build      # build de produção
+npm run preview    # visualizar build localmente
+npm run lint       # linter
+npm run format     # formatação de código
 ```
 
-Permite visualizar a build de produção localmente antes do deploy.
-
-### Linting e Formatação
-
-```bash
-# Executar linter
-npm run lint
-
-# Executar linter e corrigir problemas automaticamente
-npm run lint:fix
-
-# Formatar código com Oxfmt
-npm run format
-```
-
-## 📁 Estrutura do Projeto
+## Estrutura
 
 ```
-.
-├── src/              # Código fonte da aplicação
-├── public/           # Arquivos estáticos
-├── dist/             # Build de produção (gerado)
-├── node_modules/     # Dependências (gerado)
-└── package.json      # Configurações e dependências do projeto
+src/
+  components/     # Componentes reutilizáveis
+  hooks/          # Hooks (auth, realtime)
+  lib/supabase/   # Cliente Supabase e utilitários
+  pages/          # Páginas da aplicação
+  services/       # Serviços de acesso a dados
+supabase/
+  functions/      # Edge Functions
+  migrations/     # Migrations SQL
 ```
 
-## 🎨 Componentes UI
+## Funcionalidades
 
-Este template inclui uma biblioteca completa de componentes Shadcn UI baseados em Radix UI:
-
-- Accordion
-- Alert Dialog
-- Avatar
-- Button
-- Checkbox
-- Dialog
-- Dropdown Menu
-- Form
-- Input
-- Label
-- Select
-- Switch
-- Tabs
-- Toast
-- Tooltip
-- E muito mais...
-
-## 📝 Ferramentas de Qualidade de Código
-
-- **TypeScript**: Tipagem estática
-- **Oxlint**: Linter extremamente rápido
-- **Oxfmt**: Formatação automática de código
-
-## 🔄 Workflow de Desenvolvimento
-
-1. Instale as dependências: `npm install`
-2. Inicie o servidor de desenvolvimento: `npm start`
-3. Faça suas alterações
-4. Verifique o código: `npm run lint`
-5. Formate o código: `npm run format`
-6. Crie a build: `npm run build`
-7. Visualize a build: `npm run preview`
-
-## 📦 Build e Deploy
-
-Para criar uma build otimizada para produção:
-
-```bash
-npm run build
-```
-
-Os arquivos otimizados serão gerados na pasta `dist/` e estarão prontos para deploy.
+- **Biblioteca** — upload de imagens e links do YouTube
+- **Playlists** — criação e edição de sequências de mídia
+- **TVs** — cadastro e controle de dispositivos com player web
+- **Agendamentos** — programação de playlists por horário e dia da semana
+- **Usuários** — gestão de usuários (somente admin)
+- **Perfil** — atualização de nome, foto e senha
+- **Redefinição de senha** — por e-mail via Resend + Supabase

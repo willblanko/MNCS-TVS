@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Video, Image as ImageIcon, Trash2, Edit2, Play, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -42,48 +42,47 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
       return
     }
     setIsRenaming(true)
-    try {
-      await pb.collection('files').update(file.id, { name: newName.trim() })
-
-      toast({
-        title: 'Arquivo renomeado',
-        description: 'O arquivo foi renomeado com sucesso.',
-      })
-
+    const { error } = await supabase.from('files').update({ name: newName.trim() }).eq('id', file.id)
+    setIsRenaming(false)
+    if (error) {
+      toast({ title: 'Erro ao renomear', description: 'Não foi possível renomear o arquivo.', variant: 'destructive' })
+    } else {
+      toast({ title: 'Arquivo renomeado', description: 'O arquivo foi renomeado com sucesso.' })
       onDeleteSuccess?.()
       setIsRenameOpen(false)
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro ao renomear',
-        description: 'Ocorreu um erro ao tentar renomear o arquivo.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsRenaming(false)
     }
   }
 
   const handleDelete = async () => {
     setIsDeleting(true)
-    try {
-      await pb.collection('files').delete(file.id)
-
-      toast({
-        title: 'Arquivo removido',
-        description: 'O arquivo foi removido com sucesso da biblioteca.',
-      })
-
+    const { error } = await supabase.from('files').delete().eq('id', file.id)
+    setIsDeleting(false)
+    if (error) {
+      toast({ title: 'Erro ao remover', description: 'Não foi possível remover o arquivo.', variant: 'destructive' })
+    } else {
+      toast({ title: 'Arquivo removido', description: 'O arquivo foi removido da biblioteca.' })
       onDeleteSuccess?.()
-    } catch (error) {
-      console.error(error)
-      toast({
-        title: 'Erro ao remover',
-        description: 'Não foi possível remover o arquivo.',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsDeleting(false)
+    }
+  }
+
+  const handleDownload = async () => {
+    try {
+      if (file.url.includes('youtube.com') || file.url.includes('youtu.be')) {
+        window.open(file.url, '_blank')
+        return
+      }
+      const response = await fetch(file.url)
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = file.name
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch {
+      toast({ title: 'Erro no download', description: 'Não foi possível baixar o arquivo.', variant: 'destructive' })
     }
   }
 
@@ -102,10 +101,8 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
             alt={file.name}
             className="w-full h-full object-cover transition-transform group-hover:scale-105"
             onError={(e) => {
-              const target = e.target as HTMLImageElement
-              if (target.src !== file.url) {
-                target.src = file.url
-              }
+              const t = e.target as HTMLImageElement
+              if (t.src !== file.url) t.src = file.url
             }}
           />
           <div className="absolute top-1 left-1 sm:top-2 sm:left-2 flex gap-1">
@@ -137,50 +134,8 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                 size="icon"
                 className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
                 disabled={isDeleting || isRenaming}
-                onClick={async () => {
-                  try {
-                    if (file.url.includes('youtube.com') || file.url.includes('youtu.be')) {
-                      window.open(file.url, '_blank')
-                      return
-                    }
-                    if (file.url.includes('cloudinary.com')) {
-                      const urlParts = file.url.split('/upload/')
-                      if (urlParts.length === 2) {
-                        const downloadUrl = `${urlParts[0]}/upload/fl_attachment/${urlParts[1]}`
-                        const link = document.createElement('a')
-                        link.href = downloadUrl
-                        link.download = file.name
-                        document.body.appendChild(link)
-                        link.click()
-                        document.body.removeChild(link)
-                        return
-                      }
-                    }
-
-                    const response = await fetch(file.url)
-                    const blob = await response.blob()
-                    const url = window.URL.createObjectURL(blob)
-                    const link = document.createElement('a')
-                    link.href = url
-                    link.download = file.name
-                    document.body.appendChild(link)
-                    link.click()
-                    document.body.removeChild(link)
-                    window.URL.revokeObjectURL(url)
-                  } catch (err) {
-                    console.error('Download failed', err)
-                    toast({
-                      title: 'Erro no download',
-                      description: 'Não foi possível baixar o arquivo.',
-                      variant: 'destructive',
-                    })
-                  }
-                }}
-                title={
-                  file.url.includes('youtube') || file.url.includes('youtu.be')
-                    ? 'Abrir no YouTube'
-                    : 'Baixar arquivo'
-                }
+                onClick={handleDownload}
+                title={file.url.includes('youtube') ? 'Abrir no YouTube' : 'Baixar arquivo'}
               >
                 {file.url.includes('youtube') || file.url.includes('youtu.be') ? (
                   <Play className="h-4 w-4" />
@@ -193,10 +148,7 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                 size="icon"
                 className="h-7 w-7 sm:h-8 sm:w-8 text-muted-foreground hover:text-primary"
                 disabled={isDeleting || isRenaming}
-                onClick={() => {
-                  setNewName(file.name)
-                  setIsRenameOpen(true)
-                }}
+                onClick={() => { setNewName(file.name); setIsRenameOpen(true) }}
                 title="Renomear arquivo"
               >
                 <Edit2 className="h-4 w-4" />
@@ -216,8 +168,7 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
                   <AlertDialogHeader>
                     <AlertDialogTitle>Excluir Arquivo</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Tem certeza que deseja excluir este arquivo? Esta ação não pode ser desfeita e
-                      removerá o arquivo da biblioteca.
+                      Tem certeza que deseja excluir este arquivo? Esta ação não pode ser desfeita.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -234,7 +185,7 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground mt-auto">
-            <span>{formatSize(file.size || 0)}</span>
+            <span>{formatSize(file.original_size || 0)}</span>
           </div>
         </CardContent>
       </Card>
@@ -265,24 +216,19 @@ export function MediaCard({ file, onDeleteSuccess }: { file: any; onDeleteSucces
             <DialogHeader className="p-4 sm:p-0 pb-0">
               <DialogTitle>Renomear arquivo</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto content-start">
+            <div className="space-y-4 p-4 sm:p-0 py-4 flex-1">
               <div className="space-y-2">
                 <Label htmlFor="filename">Nome do arquivo</Label>
                 <Input
                   id="filename"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Digite o novo nome..."
                   autoFocus
                 />
               </div>
             </div>
             <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
-              <Button
-                variant="outline"
-                onClick={() => setIsRenameOpen(false)}
-                disabled={isRenaming}
-              >
+              <Button variant="outline" onClick={() => setIsRenameOpen(false)} disabled={isRenaming}>
                 Cancelar
               </Button>
               <Button onClick={handleRename} disabled={isRenaming}>

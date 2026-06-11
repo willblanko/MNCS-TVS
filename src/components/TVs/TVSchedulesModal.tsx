@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Plus, Pencil, Trash2, ArrowLeft } from 'lucide-react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
-import { extractFieldErrors, getErrorMessage, type FieldErrors } from '@/lib/pocketbase/errors'
+import { getErrorMessage, type FieldErrors } from '@/lib/supabase/errors'
 import { useToast } from '@/hooks/use-toast'
 
 import { Button } from '@/components/ui/button'
@@ -46,7 +46,7 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   const [formData, setFormData] = useState({
-    playlist: '',
+    playlist_id: '',
     days_of_week: [] as string[],
     start_time: '08:00',
     end_time: '18:00',
@@ -61,16 +61,12 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
   }, [isOpen, tv])
 
   const loadSchedules = async () => {
-    try {
-      const res = await pb.collection('playlist_schedules').getFullList({
-        filter: `tv="${tv.id}"`,
-        sort: '-created',
-        expand: 'playlist',
-      })
-      setSchedules(res)
-    } catch (err) {
-      console.error(err)
-    }
+    const { data, error } = await supabase
+      .from('playlist_schedules')
+      .select('*, playlists(id, name)')
+      .eq('tv_id', tv.id)
+      .order('created_at', { ascending: false })
+    if (!error) setSchedules(data ?? [])
   }
 
   const openForm = (schedule?: any) => {
@@ -78,7 +74,7 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
     if (schedule) {
       setEditingId(schedule.id)
       setFormData({
-        playlist: schedule.playlist,
+        playlist_id: schedule.playlist_id,
         days_of_week: schedule.days_of_week || [],
         start_time: schedule.start_time,
         end_time: schedule.end_time,
@@ -87,7 +83,7 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
     } else {
       setEditingId(null)
       setFormData({
-        playlist: '',
+        playlist_id: '',
         days_of_week: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         start_time: '08:00',
         end_time: '18:00',
@@ -100,7 +96,6 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
   const checkOverlap = () => {
     for (const existing of schedules) {
       if (editingId && existing.id === editingId) continue
-
       const dayOverlap = formData.days_of_week.some((d) => existing.days_of_week.includes(d))
       if (dayOverlap) {
         if (formData.start_time < existing.end_time && formData.end_time > existing.start_time) {
@@ -132,19 +127,20 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
         return
       }
 
-      const payload = { ...formData, tv: tv.id, user: user?.id }
+      const payload = { ...formData, tv_id: tv.id, user_id: user?.id }
 
       if (editingId) {
-        await pb.collection('playlist_schedules').update(editingId, payload)
+        const { error } = await supabase.from('playlist_schedules').update(payload).eq('id', editingId)
+        if (error) throw error
         toast({ title: 'Agendamento atualizado com sucesso' })
       } else {
-        await pb.collection('playlist_schedules').create(payload)
+        const { error } = await supabase.from('playlist_schedules').insert(payload)
+        if (error) throw error
         toast({ title: 'Agendamento criado com sucesso' })
       }
       await loadSchedules()
       setView('list')
     } catch (err) {
-      setFieldErrors(extractFieldErrors(err))
       toast({ title: 'Erro ao salvar', description: getErrorMessage(err), variant: 'destructive' })
     } finally {
       setLoading(false)
@@ -154,7 +150,8 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja remover este agendamento?')) return
     try {
-      await pb.collection('playlist_schedules').delete(id)
+      const { error } = await supabase.from('playlist_schedules').delete().eq('id', id)
+      if (error) throw error
       toast({ title: 'Agendamento removido' })
       await loadSchedules()
     } catch (err) {
@@ -177,20 +174,13 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
         <DialogHeader className="p-4 sm:p-6 pb-2 sm:pb-4 border-b sm:border-none">
           <DialogTitle className="flex items-center gap-2">
             {view === 'form' && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 -ml-2"
-                onClick={() => setView('list')}
-              >
+              <Button variant="ghost" size="icon" className="h-8 w-8 -ml-2" onClick={() => setView('list')}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
             {view === 'list'
               ? `Agendamentos: ${tv?.name}`
-              : editingId
-                ? 'Editar Agendamento'
-                : 'Novo Agendamento'}
+              : editingId ? 'Editar Agendamento' : 'Novo Agendamento'}
           </DialogTitle>
           <DialogDescription>
             {view === 'list'
@@ -221,17 +211,13 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h4 className="font-semibold line-clamp-1">
-                            {s.expand?.playlist?.name || 'Playlist Desconhecida'}
+                            {s.playlists?.name || 'Playlist Desconhecida'}
                           </h4>
                           <div className="text-sm text-muted-foreground flex gap-1 flex-wrap mt-1">
                             {DAYS_OF_WEEK.map(
                               (d) =>
                                 s.days_of_week?.includes(d.value) && (
-                                  <Badge
-                                    key={d.value}
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5"
-                                  >
+                                  <Badge key={d.value} variant="secondary" className="text-[10px] px-1.5">
                                     {d.label}
                                   </Badge>
                                 ),
@@ -248,20 +234,10 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
                           {s.start_time} - {s.end_time}
                         </div>
                         <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openForm(s)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openForm(s)}>
                             <Pencil className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDelete(s.id)}
-                          >
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(s.id)}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
@@ -276,26 +252,19 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
               <div className="grid gap-2">
                 <Label htmlFor="playlist">Playlist</Label>
                 <Select
-                  value={formData.playlist}
-                  onValueChange={(val) => setFormData((prev) => ({ ...prev, playlist: val }))}
+                  value={formData.playlist_id}
+                  onValueChange={(val) => setFormData((prev) => ({ ...prev, playlist_id: val }))}
                 >
-                  <SelectTrigger
-                    id="playlist"
-                    className={fieldErrors.playlist ? 'border-destructive' : ''}
-                  >
+                  <SelectTrigger id="playlist" className={fieldErrors.playlist_id ? 'border-destructive' : ''}>
                     <SelectValue placeholder="Selecione a Playlist" />
                   </SelectTrigger>
                   <SelectContent>
                     {playlists.map((pl: any) => (
-                      <SelectItem key={pl.id} value={pl.id}>
-                        {pl.name}
-                      </SelectItem>
+                      <SelectItem key={pl.id} value={pl.id}>{pl.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {fieldErrors.playlist && (
-                  <p className="text-xs text-destructive">{fieldErrors.playlist}</p>
-                )}
+                {fieldErrors.playlist_id && <p className="text-xs text-destructive">{fieldErrors.playlist_id}</p>}
               </div>
 
               <div className="grid gap-2">
@@ -312,9 +281,7 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
                     </Badge>
                   ))}
                 </div>
-                {fieldErrors.days_of_week && (
-                  <p className="text-xs text-destructive">{fieldErrors.days_of_week}</p>
-                )}
+                {fieldErrors.days_of_week && <p className="text-xs text-destructive">{fieldErrors.days_of_week}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -324,14 +291,10 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
                     id="start_time"
                     type="time"
                     value={formData.start_time}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, start_time: e.target.value }))
-                    }
+                    onChange={(e) => setFormData((prev) => ({ ...prev, start_time: e.target.value }))}
                     className={fieldErrors.start_time ? 'border-destructive' : ''}
                   />
-                  {fieldErrors.start_time && (
-                    <p className="text-xs text-destructive">{fieldErrors.start_time}</p>
-                  )}
+                  {fieldErrors.start_time && <p className="text-xs text-destructive">{fieldErrors.start_time}</p>}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="end_time">Hora de Término</Label>
@@ -342,9 +305,7 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
                     onChange={(e) => setFormData((prev) => ({ ...prev, end_time: e.target.value }))}
                     className={fieldErrors.end_time ? 'border-destructive' : ''}
                   />
-                  {fieldErrors.end_time && (
-                    <p className="text-xs text-destructive">{fieldErrors.end_time}</p>
-                  )}
+                  {fieldErrors.end_time && <p className="text-xs text-destructive">{fieldErrors.end_time}</p>}
                 </div>
               </div>
 
@@ -352,22 +313,16 @@ export function TVSchedulesModal({ tv, playlists, isOpen, onClose }: any) {
                 <Switch
                   id="active"
                   checked={formData.active}
-                  onCheckedChange={(checked) =>
-                    setFormData((prev) => ({ ...prev, active: checked }))
-                  }
+                  onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, active: checked }))}
                 />
-                <Label htmlFor="active" className="cursor-pointer">
-                  Agendamento Ativo
-                </Label>
+                <Label htmlFor="active" className="cursor-pointer">Agendamento Ativo</Label>
               </div>
 
               <div className="pt-4 flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setView('list')}>
-                  Cancelar
-                </Button>
+                <Button variant="outline" onClick={() => setView('list')}>Cancelar</Button>
                 <Button
                   onClick={handleSave}
-                  disabled={loading || !formData.playlist || formData.days_of_week.length === 0}
+                  disabled={loading || !formData.playlist_id || formData.days_of_week.length === 0}
                 >
                   {loading ? 'Salvando...' : 'Salvar'}
                 </Button>

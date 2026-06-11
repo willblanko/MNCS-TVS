@@ -1,33 +1,40 @@
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 
 export interface PlaylistSchedule {
   id: string
-  playlist: string
-  tv: string
+  playlist_id: string
+  tv_id: string
   days_of_week: string[]
   start_time: string
   end_time: string
   active: boolean
-  user: string
-  created: string
-  updated: string
-  expand?: {
-    playlist: { id: string; name: string }
-    tv: { id: string; name: string }
-    user: { id: string; name: string }
-  }
+  user_id: string | null
+  created_at: string
+  updated_at: string
+  playlists?: { id: string; name: string } | null
+  tvs?: { id: string; name: string } | null
 }
 
-export const getPlaylistSchedules = () =>
-  pb.collection('playlist_schedules').getFullList<PlaylistSchedule>({
-    sort: '-created',
-    expand: 'playlist,tv,user',
-  })
+export const getPlaylistSchedules = async (): Promise<PlaylistSchedule[]> => {
+  const { data, error } = await supabase
+    .from('playlist_schedules')
+    .select('*, playlists(id, name), tvs(id, name)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as PlaylistSchedule[]
+}
 
-export const createPlaylistSchedule = (data: Partial<PlaylistSchedule>) =>
-  pb.collection('playlist_schedules').create<PlaylistSchedule>(data)
+export const createPlaylistSchedule = async (data: Partial<PlaylistSchedule>) => {
+  const { error } = await supabase.from('playlist_schedules').insert(data)
+  if (error) throw error
+}
 
-export const updatePlaylistSchedule = (id: string, data: Partial<PlaylistSchedule>) =>
-  pb.collection('playlist_schedules').update<PlaylistSchedule>(id, data)
+export const updatePlaylistSchedule = async (id: string, data: Partial<PlaylistSchedule>) => {
+  const { error } = await supabase.from('playlist_schedules').update(data).eq('id', id)
+  if (error) throw error
+}
 
-export const deletePlaylistSchedule = (id: string) => pb.collection('playlist_schedules').delete(id)
+export const deletePlaylistSchedule = async (id: string) => {
+  const { error } = await supabase.from('playlist_schedules').delete().eq('id', id)
+  if (error) throw error
+}

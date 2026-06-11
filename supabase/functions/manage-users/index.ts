@@ -10,29 +10,43 @@ Deno.serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? ''
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
+    if (!authHeader) throw new Error('No authorization header')
 
     const token = authHeader.replace('Bearer ', '')
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token)
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !user) throw new Error('Unauthorized')
 
-    if (authError || !user) {
-      throw new Error('Unauthorized')
-    }
+    // Verify caller is admin
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    if (profile?.role !== 'admin') throw new Error('Forbidden: admin access required')
 
     const body = await req.json()
-    const { action, email, password, name, userId } = body
+    const { action, email, password, name, role, userId } = body
 
     let result
-    if (action === 'create') {
+
+    if (action === 'list') {
+      const { data: authUsers, error: listError } = await supabase.auth.admin.listUsers()
+      if (listError) throw listError
+
+      const { data: profiles } = await supabase.from('profiles').select('id, name, role, avatar_url')
+      const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
+
+      result = (authUsers.users ?? []).map((u: any) => {
+        const p = profileMap.get(u.id) ?? {}
+        return {
+          id: u.id,
+          email: u.email,
+          name: p.name ?? u.user_metadata?.name ?? '',
+          role: p.role ?? 'user',
+          avatar_url: p.avatar_url ?? '',
+          created_at: u.created_at,
+        }
+      })
+    } else if (action === 'create') {
       const { data, error } = await supabase.auth.admin.createUser({
         email,
         password,
@@ -43,7 +57,7 @@ Deno.serve(async (req: Request) => {
       result = data.user
 
       if (result) {
-        await supabase.from('profiles').update({ name }).eq('id', result.id)
+        await supabase.from('profiles').update({ name, role: role ?? 'user' }).eq('id', result.id)
       }
     } else if (action === 'update') {
       if (!userId) throw new Error('User ID is required for update')
@@ -56,8 +70,11 @@ Deno.serve(async (req: Request) => {
       if (error) throw error
       result = data.user
 
-      if (name !== undefined) {
-        await supabase.from('profiles').update({ name }).eq('id', userId)
+      const profileUpdate: any = {}
+      if (name !== undefined) profileUpdate.name = name
+      if (role !== undefined) profileUpdate.role = role
+      if (Object.keys(profileUpdate).length > 0) {
+        await supabase.from('profiles').update(profileUpdate).eq('id', userId)
       }
     } else if (action === 'delete') {
       if (!userId) throw new Error('User ID is required for deletion')

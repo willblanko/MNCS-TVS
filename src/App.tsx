@@ -11,6 +11,7 @@ import UsersPage from './pages/Users'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
 import Login from './pages/Login'
+import ResetPassword from './pages/ResetPassword'
 import { AuthProvider, useAuth } from './hooks/use-auth'
 import { ThemeProvider } from '@/components/theme-provider'
 
@@ -51,6 +52,7 @@ const App = () => (
           <Sonner />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/redefinir-senha" element={<ResetPassword />} />
             <Route
               element={
                 <AuthGuard>

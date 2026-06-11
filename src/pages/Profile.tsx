@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/use-auth'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import {
   Card,
   CardContent,
@@ -15,19 +15,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { useTheme } from '@/components/theme-provider'
 import { useToast } from '@/hooks/use-toast'
-import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
 
 export default function Profile() {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { theme, setTheme } = useTheme()
   const { toast } = useToast()
 
@@ -35,71 +27,69 @@ export default function Profile() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [nameError, setNameError] = useState('')
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<any>({})
-  const [profileErrors, setProfileErrors] = useState<any>({})
+  const [passwordErrors, setPasswordErrors] = useState<any>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (user) {
       setName(user.name || '')
-      if (user.avatar) {
-        setAvatarUrl(pb.files.getURL(user, user.avatar))
-      }
+      setAvatarUrl(user.avatar_url || '')
     }
   }, [user])
 
   const handleSaveProfile = async () => {
-    const errors: any = {}
+    setNameError('')
     if (!name.trim()) {
-      errors.name = 'Este campo é obrigatório'
+      setNameError('Este campo é obrigatório')
+      return
     }
-    setProfileErrors(errors)
-    if (Object.keys(errors).length > 0) return
 
     setIsSaving(true)
-    try {
-      await pb.collection('users').update(user.id, { name })
+    const { error } = await supabase.from('profiles').update({ name: name.trim() }).eq('id', user.id)
+    setIsSaving(false)
+
+    if (error) {
+      toast({ title: 'Erro ao salvar perfil', description: error.message, variant: 'destructive' })
+    } else {
+      await refreshUser()
       toast({ title: 'Perfil atualizado com sucesso!' })
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao salvar perfil',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
-    } finally {
-      setIsSaving(false)
     }
   }
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0) return
+
+    setIsUploading(true)
     try {
-      if (!event.target.files || event.target.files.length === 0) return
-
-      setIsUploading(true)
       const file = event.target.files[0]
+      const ext = file.name.split('.').pop()
+      const path = `${user.id}/avatar.${ext}`
 
-      const formData = new FormData()
-      formData.append('avatar', file)
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true })
+      if (uploadError) throw uploadError
 
-      const updatedUser = await pb.collection('users').update(user.id, formData)
+      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
 
-      if (updatedUser.avatar) {
-        setAvatarUrl(pb.files.getURL(updatedUser, updatedUser.avatar))
-      }
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id)
+      if (dbError) throw dbError
 
+      setAvatarUrl(publicUrl)
+      await refreshUser()
       toast({ title: 'Foto atualizada com sucesso!' })
     } catch (error: any) {
-      toast({
-        title: 'Erro ao enviar foto',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro ao enviar foto', description: error.message, variant: 'destructive' })
     } finally {
       setIsUploading(false)
     }
@@ -107,41 +97,38 @@ export default function Profile() {
 
   const handleChangePassword = async () => {
     const errors: any = {}
-    if (!currentPassword) {
-      errors.oldPassword = 'Este campo é obrigatório'
-    }
-    if (!newPassword) {
-      errors.password = 'Este campo é obrigatório'
-    } else if (newPassword.length < 8) {
-      errors.password = 'A nova senha deve ter no mínimo 8 caracteres'
-    }
-    if (!confirmPassword) {
-      errors.passwordConfirm = 'Este campo é obrigatório'
-    } else if (newPassword !== confirmPassword) {
-      errors.passwordConfirm = 'As senhas não coincidem'
-    }
+    if (!currentPassword) errors.currentPassword = 'Este campo é obrigatório'
+    if (!newPassword) errors.newPassword = 'Este campo é obrigatório'
+    else if (newPassword.length < 8) errors.newPassword = 'A nova senha deve ter no mínimo 8 caracteres'
+    if (!confirmPassword) errors.confirmPassword = 'Este campo é obrigatório'
+    else if (newPassword !== confirmPassword) errors.confirmPassword = 'As senhas não coincidem'
 
-    setFieldErrors(errors)
+    setPasswordErrors(errors)
     if (Object.keys(errors).length > 0) return
 
     setIsChangingPassword(true)
     try {
-      await pb.collection('users').update(user.id, {
-        oldPassword: currentPassword,
-        password: newPassword,
-        passwordConfirm: confirmPassword,
+      // Verify current password by re-signing in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email!,
+        password: currentPassword,
       })
+      if (signInError) {
+        setPasswordErrors({ currentPassword: 'Senha atual incorreta' })
+        setIsChangingPassword(false)
+        return
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+
       toast({ title: 'Senha alterada com sucesso!' })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      setPasswordErrors({})
     } catch (error: any) {
-      setFieldErrors(extractFieldErrors(error))
-      toast({
-        title: 'Erro ao alterar senha',
-        description: getErrorMessage(error),
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro ao alterar senha', description: error.message, variant: 'destructive' })
     } finally {
       setIsChangingPassword(false)
     }
@@ -200,16 +187,12 @@ export default function Profile() {
                   placeholder="Seu nome"
                   className="max-w-md"
                 />
-                {profileErrors.name && (
-                  <p className="text-sm text-red-500 mt-1">{profileErrors.name}</p>
-                )}
+                {nameError && <p className="text-sm text-red-500 mt-1">{nameError}</p>}
               </div>
               <div className="space-y-2">
                 <Label>E-mail</Label>
                 <Input value={user?.email || ''} disabled className="max-w-md bg-muted" />
-                <p className="text-xs text-muted-foreground">
-                  O e-mail não pode ser alterado por aqui.
-                </p>
+                <p className="text-xs text-muted-foreground">O e-mail não pode ser alterado por aqui.</p>
               </div>
             </div>
           </div>
@@ -242,8 +225,8 @@ export default function Profile() {
               placeholder="Sua senha atual"
               className="max-w-md"
             />
-            {fieldErrors.oldPassword && (
-              <p className="text-sm text-red-500 mt-1">{fieldErrors.oldPassword}</p>
+            {passwordErrors.currentPassword && (
+              <p className="text-sm text-red-500 mt-1">{passwordErrors.currentPassword}</p>
             )}
           </div>
           <div className="space-y-2">
@@ -256,8 +239,8 @@ export default function Profile() {
               placeholder="Sua nova senha"
               className="max-w-md"
             />
-            {fieldErrors.password && (
-              <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
+            {passwordErrors.newPassword && (
+              <p className="text-sm text-red-500 mt-1">{passwordErrors.newPassword}</p>
             )}
           </div>
           <div className="space-y-2">
@@ -270,8 +253,8 @@ export default function Profile() {
               placeholder="Confirme a nova senha"
               className="max-w-md"
             />
-            {fieldErrors.passwordConfirm && (
-              <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
+            {passwordErrors.confirmPassword && (
+              <p className="text-sm text-red-500 mt-1">{passwordErrors.confirmPassword}</p>
             )}
           </div>
         </CardContent>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Table,
@@ -45,7 +45,20 @@ import {
 } from '@/components/ui/select'
 import { MoreHorizontal, Key, Trash, Edit, Loader2, UserPlus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
+
+async function callManageUsers(body: any) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  if (!token) throw new Error('Não autenticado')
+
+  const { data, error } = await supabase.functions.invoke('manage-users', {
+    body,
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+  return data
+}
 
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([])
@@ -72,66 +85,36 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     setLoading(true)
     try {
-      const data = await pb.collection('users').getFullList({ sort: '-created' })
-      setUsers(data)
+      const data = await callManageUsers({ action: 'list' })
+      setUsers(data?.data ?? [])
     } catch (err: any) {
-      if (!err.isAbort) {
-        toast({
-          title: 'Erro',
-          description: getErrorMessage(err) || 'Falha ao carregar usuários.',
-          variant: 'destructive',
-        })
-      }
+      toast({ title: 'Erro', description: err.message || 'Falha ao carregar usuários.', variant: 'destructive' })
     }
     setLoading(false)
   }
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
+  useEffect(() => { fetchUsers() }, [])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
-    let hasError = false
     const errors: any = {}
-
-    if (!formData.name.trim()) {
-      errors.name = 'Este campo é obrigatório'
-      hasError = true
-    }
-    if (!formData.email.trim()) {
-      errors.email = 'Este campo é obrigatório'
-      hasError = true
-    }
-    if (!formData.password) {
-      errors.password = 'Este campo é obrigatório'
-      hasError = true
-    } else if (formData.password.length < 8) {
-      errors.password = 'A senha deve ter no mínimo 8 caracteres'
-      hasError = true
-    }
-    if (!formData.passwordConfirm) {
-      errors.passwordConfirm = 'Este campo é obrigatório'
-      hasError = true
-    } else if (formData.password !== formData.passwordConfirm) {
-      errors.passwordConfirm = 'As senhas não coincidem.'
-      hasError = true
-    }
+    if (!formData.name.trim()) errors.name = 'Este campo é obrigatório'
+    if (!formData.email.trim()) errors.email = 'Este campo é obrigatório'
+    if (!formData.password) errors.password = 'Este campo é obrigatório'
+    else if (formData.password.length < 8) errors.password = 'A senha deve ter no mínimo 8 caracteres'
+    if (!formData.passwordConfirm) errors.passwordConfirm = 'Este campo é obrigatório'
+    else if (formData.password !== formData.passwordConfirm) errors.passwordConfirm = 'As senhas não coincidem.'
 
     setFieldErrors(errors)
-
-    if (hasError) {
-      setIsSubmitting(false)
-      return
-    }
+    if (Object.keys(errors).length > 0) { setIsSubmitting(false); return }
 
     try {
-      await pb.collection('users').create({
+      await callManageUsers({
+        action: 'create',
         email: formData.email.trim(),
         password: formData.password,
-        passwordConfirm: formData.passwordConfirm,
         name: formData.name.trim(),
         role: formData.role,
       })
@@ -139,12 +122,7 @@ export default function UsersPage() {
       setIsAddOpen(false)
       fetchUsers()
     } catch (err: any) {
-      setFieldErrors(extractFieldErrors(err))
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Falha ao criar usuário.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: err.message || 'Falha ao criar usuário.', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
@@ -154,38 +132,23 @@ export default function UsersPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    let hasError = false
     const errors: any = {}
-
-    if (!formData.name.trim()) {
-      errors.name = 'Este campo é obrigatório'
-      hasError = true
-    }
-
+    if (!formData.name.trim()) errors.name = 'Este campo é obrigatório'
     setFieldErrors(errors)
-
-    if (hasError) {
-      setIsSubmitting(false)
-      return
-    }
-
-    const payload: any = {
-      name: formData.name.trim(),
-      role: formData.role,
-    }
+    if (Object.keys(errors).length > 0) { setIsSubmitting(false); return }
 
     try {
-      await pb.collection('users').update(selectedUser.id, payload)
+      await callManageUsers({
+        action: 'update',
+        userId: selectedUser.id,
+        name: formData.name.trim(),
+        role: formData.role,
+      })
       toast({ title: 'Sucesso', description: 'Usuário atualizado!' })
       setIsEditOpen(false)
       fetchUsers()
     } catch (err: any) {
-      setFieldErrors(extractFieldErrors(err))
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Falha ao atualizar usuário.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: err.message || 'Falha ao atualizar usuário.', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
@@ -195,49 +158,25 @@ export default function UsersPage() {
     e.preventDefault()
     setIsSubmitting(true)
 
-    let hasError = false
     const errors: any = {}
-
-    if (!formData.password) {
-      errors.password = 'Este campo é obrigatório'
-      hasError = true
-    } else if (formData.password.length < 8) {
-      errors.password = 'A senha deve ter no mínimo 8 caracteres'
-      hasError = true
-    }
-
-    if (!formData.passwordConfirm) {
-      errors.passwordConfirm = 'Este campo é obrigatório'
-      hasError = true
-    } else if (formData.password !== formData.passwordConfirm) {
-      errors.passwordConfirm = 'As senhas não coincidem.'
-      hasError = true
-    }
+    if (!formData.password) errors.password = 'Este campo é obrigatório'
+    else if (formData.password.length < 8) errors.password = 'A senha deve ter no mínimo 8 caracteres'
+    if (!formData.passwordConfirm) errors.passwordConfirm = 'Este campo é obrigatório'
+    else if (formData.password !== formData.passwordConfirm) errors.passwordConfirm = 'As senhas não coincidem.'
 
     setFieldErrors(errors)
-
-    if (hasError) {
-      setIsSubmitting(false)
-      return
-    }
+    if (Object.keys(errors).length > 0) { setIsSubmitting(false); return }
 
     try {
-      await pb.send(`/backend/v1/users/${selectedUser.id}/password`, {
-        method: 'POST',
-        body: JSON.stringify({
-          password: formData.password,
-          passwordConfirm: formData.passwordConfirm,
-        }),
+      await callManageUsers({
+        action: 'update',
+        userId: selectedUser.id,
+        password: formData.password,
       })
       toast({ title: 'Sucesso', description: 'Senha alterada com sucesso' })
       setIsPasswordOpen(false)
     } catch (err: any) {
-      setFieldErrors(extractFieldErrors(err))
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Falha ao alterar a senha.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: err.message || 'Falha ao alterar a senha.', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
@@ -246,16 +185,12 @@ export default function UsersPage() {
   const handleDelete = async () => {
     setIsSubmitting(true)
     try {
-      await pb.collection('users').delete(selectedUser.id)
+      await callManageUsers({ action: 'delete', userId: selectedUser.id })
       toast({ title: 'Sucesso', description: 'Usuário removido!' })
       setIsDeleteOpen(false)
       fetchUsers()
     } catch (err: any) {
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Falha ao remover usuário.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: err.message || 'Falha ao remover usuário.', variant: 'destructive' })
     } finally {
       setIsSubmitting(false)
     }
@@ -267,13 +202,7 @@ export default function UsersPage() {
         <h1 className="text-3xl font-bold tracking-tight">Gestão de Acessos</h1>
         <Button
           onClick={() => {
-            setFormData({
-              name: '',
-              email: '',
-              password: '',
-              passwordConfirm: '',
-              role: 'user',
-            })
+            setFormData({ name: '', email: '', password: '', passwordConfirm: '', role: 'user' })
             setFieldErrors({})
             setIsAddOpen(true)
           }}
@@ -324,7 +253,7 @@ export default function UsersPage() {
                         {user.role === 'admin' ? 'Administrador' : 'Usuário'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{new Date(user.created).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(user.created_at).toLocaleDateString()}</TableCell>
                     <TableCell>
                       <Badge className="bg-emerald-500 hover:bg-emerald-600 border-0 text-white">
                         Ativo
@@ -342,13 +271,7 @@ export default function UsersPage() {
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedUser(user)
-                              setFormData({
-                                name: user.name || '',
-                                email: user.email || '',
-                                password: '',
-                                passwordConfirm: '',
-                                role: user.role || 'user',
-                              })
+                              setFormData({ name: user.name || '', email: user.email || '', password: '', passwordConfirm: '', role: user.role || 'user' })
                               setFieldErrors({})
                               setIsEditOpen(true)
                             }}
@@ -358,13 +281,7 @@ export default function UsersPage() {
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedUser(user)
-                              setFormData({
-                                name: '',
-                                email: '',
-                                password: '',
-                                passwordConfirm: '',
-                                role: 'user',
-                              })
+                              setFormData({ name: '', email: '', password: '', passwordConfirm: '', role: 'user' })
                               setFieldErrors({})
                               setIsPasswordOpen(true)
                             }}
@@ -373,10 +290,7 @@ export default function UsersPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-destructive focus:text-destructive"
-                            onClick={() => {
-                              setSelectedUser(user)
-                              setIsDeleteOpen(true)
-                            }}
+                            onClick={() => { setSelectedUser(user); setIsDeleteOpen(true) }}
                           >
                             <Trash className="mr-2 h-4 w-4" /> Remover
                           </DropdownMenuItem>
@@ -400,70 +314,37 @@ export default function UsersPage() {
             <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto">
               <div className="space-y-2">
                 <Label>Nome</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-                {fieldErrors.name && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
-                )}
+                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                {fieldErrors.name && <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-                {fieldErrors.email && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.email}</p>
-                )}
+                <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                {fieldErrors.email && <p className="text-sm text-red-500 mt-1">{fieldErrors.email}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Papel</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(val) => setFormData({ ...formData, role: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o papel" />
-                  </SelectTrigger>
+                <Select value={formData.role} onValueChange={(val) => setFormData({ ...formData, role: val })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o papel" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
-                {fieldErrors.role && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.role}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label>Senha</Label>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-                {fieldErrors.password && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
-                )}
+                <Input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                {fieldErrors.password && <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Confirmar Senha</Label>
-                <Input
-                  type="password"
-                  value={formData.passwordConfirm}
-                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                />
-                {fieldErrors.passwordConfirm && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
-                )}
+                <Input type="password" value={formData.passwordConfirm} onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })} />
+                {fieldErrors.passwordConfirm && <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>}
               </div>
             </div>
             <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
-              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>
-                Cancelar
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsAddOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Criar
               </Button>
@@ -481,31 +362,18 @@ export default function UsersPage() {
             <div className="space-y-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto">
               <div className="space-y-2">
                 <Label>Nome</Label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-                {fieldErrors.name && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>
-                )}
+                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                {fieldErrors.name && <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Papel</Label>
-                <Select
-                  value={formData.role}
-                  onValueChange={(val) => setFormData({ ...formData, role: val })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o papel" />
-                  </SelectTrigger>
+                <Select value={formData.role} onValueChange={(val) => setFormData({ ...formData, role: val })}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o papel" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
-                {fieldErrors.role && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.role}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -514,9 +382,7 @@ export default function UsersPage() {
               </div>
             </div>
             <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
-              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
-                Cancelar
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>Cancelar</Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar
               </Button>
@@ -537,39 +403,20 @@ export default function UsersPage() {
               </p>
               <div className="space-y-2">
                 <Label>Nova Senha</Label>
-                <Input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                />
-                {fieldErrors.password && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>
-                )}
+                <Input type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+                {fieldErrors.password && <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>}
               </div>
               <div className="space-y-2">
                 <Label>Confirmar Nova Senha</Label>
-                <Input
-                  type="password"
-                  value={formData.passwordConfirm}
-                  onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })}
-                />
-                {fieldErrors.passwordConfirm && (
-                  <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>
-                )}
+                <Input type="password" value={formData.passwordConfirm} onChange={(e) => setFormData({ ...formData, passwordConfirm: e.target.value })} />
+                {fieldErrors.passwordConfirm && <p className="text-sm text-red-500 mt-1">{fieldErrors.passwordConfirm}</p>}
               </div>
             </div>
             <DialogFooter className="p-4 sm:p-0 border-t sm:border-0 mt-auto">
-              <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)}>
-                Cancelar
-              </Button>
+              <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)}>Cancelar</Button>
               <Button
                 type="submit"
-                disabled={
-                  isSubmitting ||
-                  !formData.password ||
-                  formData.password !== formData.passwordConfirm ||
-                  formData.password.length < 8
-                }
+                disabled={isSubmitting || !formData.password || formData.password !== formData.passwordConfirm || formData.password.length < 8}
               >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Atualizar
               </Button>
@@ -583,17 +430,13 @@ export default function UsersPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remover Usuário?</AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja remover <strong>{selectedUser?.email}</strong>? Esta ação não
-              pode ser desfeita.
+              Tem certeza que deseja remover <strong>{selectedUser?.email}</strong>? Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                handleDelete()
-              }}
+              onClick={(e) => { e.preventDefault(); handleDelete() }}
               disabled={isSubmitting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

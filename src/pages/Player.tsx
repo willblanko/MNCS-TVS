@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { AlertCircle, MonitorOff, VolumeX } from 'lucide-react'
-import pb from '@/lib/pocketbase/client'
+import { supabase } from '@/lib/supabase/client'
 import { useRealtime } from '@/hooks/use-realtime'
 import { cn } from '@/lib/utils'
 
@@ -17,7 +17,18 @@ export default function Player() {
 
   const fetchData = async () => {
     try {
-      const tv = await pb.collection('tvs').getFirstListItem(`code="${tvId}"`, { code: tvId })
+      const { data: tv, error: tvError } = await supabase
+        .from('tvs')
+        .select()
+        .eq('id', tvId)
+        .single()
+
+      if (tvError || !tv) {
+        setCurrentTV(null)
+        setLoading(false)
+        return
+      }
+
       setCurrentTV(tv)
 
       if (tv.status === 'offline') {
@@ -26,38 +37,39 @@ export default function Player() {
         return
       }
 
-      const schedules = await pb.collection('playlist_schedules').getFullList({
-        filter: `tv="${tv.id}" && active=true`,
-      })
+      const { data: schedules } = await supabase
+        .from('playlist_schedules')
+        .select()
+        .eq('tv_id', tv.id)
+        .eq('active', true)
 
       const now = new Date()
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
       const currentDay = days[now.getDay()]
-      const currentHour = now.getHours().toString().padStart(2, '0')
-      const currentMinute = now.getMinutes().toString().padStart(2, '0')
-      const currentTime = `${currentHour}:${currentMinute}`
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`
 
-      let targetPlaylist = tv.current_playlist
+      let targetPlaylist = tv.playlist_id
 
-      for (const schedule of schedules) {
+      for (const schedule of schedules ?? []) {
         if (
           schedule.days_of_week.includes(currentDay) &&
           schedule.start_time <= currentTime &&
           schedule.end_time >= currentTime
         ) {
-          targetPlaylist = schedule.playlist
+          targetPlaylist = schedule.playlist_id
           break
         }
       }
 
       if (targetPlaylist) {
-        const items = await pb.collection('playlist_items').getFullList({
-          filter: `playlist="${targetPlaylist}"`,
-          sort: 'sort_order',
-          expand: 'file',
-        })
-        const mappedItems = items
-          .map((item: any) => ({ ...item, file: item.expand?.file }))
+        const { data: items } = await supabase
+          .from('playlist_items')
+          .select('*, files(*)')
+          .eq('playlist_id', targetPlaylist)
+          .order('order')
+
+        const mappedItems = (items ?? [])
+          .map((item: any) => ({ ...item, file: item.files }))
           .filter((i) => i.file)
 
         setPlaylistItems(mappedItems)
@@ -79,15 +91,10 @@ export default function Player() {
     return () => clearInterval(interval)
   }, [tvId])
 
-  useRealtime('tvs', (e) => {
-    if (e.action === 'update' && e.record.code === tvId) {
-      fetchData()
-    }
-  })
-
-  useRealtime('playlists', () => fetchData())
-  useRealtime('playlist_schedules', () => fetchData())
-  useRealtime('playlist_items', () => fetchData())
+  useRealtime('tvs', fetchData)
+  useRealtime('playlists', fetchData)
+  useRealtime('playlist_schedules', fetchData)
+  useRealtime('playlist_items', fetchData)
 
   useEffect(() => {
     if (playlistItems.length > 0 && currentIndex >= playlistItems.length) {
@@ -110,11 +117,10 @@ export default function Player() {
 
     let timeout: ReturnType<typeof setTimeout>
     const nextIndex = (currentIndex + 1) % playlistItems.length
-
     const isYoutube = currentFile.type === 'video' && !!extractYouTubeId(currentFile.url)
 
     if (currentFile.type === 'video' && !isYoutube) {
-      // Legacy HTML5 video uses onEnded event below
+      // HTML5 video uses onEnded event
     } else {
       let duration = currentItem.duration > 0 ? currentItem.duration * 1000 : 10000
       if (isYoutube && currentItem.duration === 0) {
@@ -123,9 +129,7 @@ export default function Player() {
       timeout = setTimeout(() => setCurrentIndex(nextIndex), duration)
     }
 
-    return () => {
-      if (timeout) clearTimeout(timeout)
-    }
+    return () => { if (timeout) clearTimeout(timeout) }
   }, [currentIndex, currentItem, currentFile, playlistItems.length])
 
   useEffect(() => {
@@ -163,9 +167,7 @@ export default function Player() {
         console.error(`Error attempting to enable fullscreen: ${err.message}`)
       })
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen()
-      }
+      if (document.exitFullscreen) document.exitFullscreen()
     }
 
     if (isMuted) {
@@ -194,7 +196,7 @@ export default function Player() {
         className="fixed inset-0 flex h-screen w-screen items-center justify-center bg-black text-white text-xl text-center p-4"
         style={{ zIndex: 2147483647 }}
       >
-        TV Code {tvId} não encontrado. Por favor, verifique o código e tente novamente.
+        TV "{tvId}" não encontrada. Por favor, verifique o código e tente novamente.
       </div>
     )
   }

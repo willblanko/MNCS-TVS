@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import pb from '@/lib/pocketbase/client'
 import logoBlack from '../assets/meida-icon-black-1f9f5.png'
 import logoWhite from '../assets/meida-icon-white-a3ca9.png'
 import { Loader2 } from 'lucide-react'
@@ -17,13 +16,9 @@ export default function Login() {
   const { toast } = useToast()
 
   const [mode, setMode] = useState<'login' | 'email'>('login')
-
-  // Login state
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
-
-  // Reset state
   const [resetEmail, setResetEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -40,7 +35,7 @@ export default function Login() {
     const { error } = await signIn(email, password)
     setIsLoading(false)
     if (error) {
-      setErrorMsg('E-mail ou senha inválidos. Tente novamente.')
+      setErrorMsg('E-mail ou senha inválidos. Verifique suas credenciais e tente novamente.')
     } else {
       navigate(from, { replace: true })
     }
@@ -51,17 +46,20 @@ export default function Login() {
     setErrorMsg('')
     setIsLoading(true)
     try {
-      await pb.collection('users').requestPasswordReset(resetEmail)
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      })
+      if (error) throw error
       toast({
         title: 'E-mail enviado',
         description:
-          'Se houver uma conta com este e-mail, um link de redefinição de senha foi enviado.',
+          'Se houver uma conta com este e-mail, você receberá um link para redefinir a senha.',
       })
       setMode('login')
       setResetEmail('')
-    } catch (err: any) {
+    } catch {
       setErrorMsg(
-        'Não foi possível solicitar a redefinição de senha. Verifique o e-mail e tente novamente.',
+        'Não foi possível enviar o e-mail. Verifique o endereço e tente novamente.',
       )
     } finally {
       setIsLoading(false)
@@ -92,36 +90,29 @@ export default function Login() {
                   {errorMsg}
                 </div>
               )}
-              <div>
-                <Input
-                  type="email"
-                  placeholder="E-mail"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <Input
-                  type="password"
-                  placeholder="Senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
+              <Input
+                type="email"
+                placeholder="E-mail"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+              <Input
+                type="password"
+                placeholder="Senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Entrar
               </Button>
-              <div className="text-center mt-4">
+              <div className="text-center">
                 <Button
                   type="button"
                   variant="link"
-                  onClick={() => {
-                    setMode('email')
-                    setErrorMsg('')
-                  }}
+                  onClick={() => { setMode('email'); setErrorMsg('') }}
                   className="text-sm"
                 >
                   Esqueci minha senha
@@ -143,20 +134,18 @@ export default function Login() {
                   {errorMsg}
                 </div>
               )}
-              <div>
-                <Input
-                  type="email"
-                  placeholder="E-mail"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  required
-                />
-              </div>
+              <Input
+                type="email"
+                placeholder="E-mail"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                required
+              />
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Enviar link
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Enviar link de redefinição
               </Button>
-              <div className="text-center mt-4">
+              <div className="text-center">
                 <Button
                   type="button"
                   variant="link"

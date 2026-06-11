@@ -13,10 +13,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Trash2, Plus, ChevronUp, ChevronDown } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import pb from '@/lib/pocketbase/client'
-import { useAuth } from '@/hooks/use-auth'
+import { supabase } from '@/lib/supabase/client'
 import { useToast } from '@/hooks/use-toast'
-import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
 import type { PlaylistData } from '@/pages/Playlists'
 
 interface Props {
@@ -27,63 +25,45 @@ interface Props {
 }
 
 export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: Props) {
-  const { user } = useAuth()
   const [name, setName] = useState('')
   const [items, setItems] = useState<PlaylistData['items']>([])
   const [files, setFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<any>({})
+  const [nameError, setNameError] = useState('')
   const { toast } = useToast()
 
   useEffect(() => {
     if (open) {
-      if (playlist) {
-        setName(playlist.name)
-        setItems(playlist.items)
-      } else {
-        setName('Nova Playlist')
-        setItems([])
-      }
-      setFieldErrors({})
+      setName(playlist ? playlist.name : 'Nova Playlist')
+      setItems(playlist ? playlist.items : [])
+      setNameError('')
       fetchFiles()
     }
   }, [playlist, open])
 
   const fetchFiles = async () => {
-    try {
-      const data = await pb.collection('files').getFullList({ sort: '-created' })
-      setFiles(data)
-    } catch {
-      /* intentionally ignored */
-    }
+    const { data } = await supabase.from('files').select().order('created_at', { ascending: false })
+    setFiles(data ?? [])
   }
 
   const handleSave = async () => {
     setLoading(true)
-    setFieldErrors({})
+    setNameError('')
 
     if (!name.trim()) {
-      setFieldErrors({ name: 'O nome da playlist não pode estar em branco.' })
+      setNameError('O nome da playlist não pode estar em branco.')
       setLoading(false)
       return
     }
 
     if (items.length === 0) {
-      toast({
-        title: 'Atenção',
-        description: 'Adicione pelo menos uma mídia à playlist.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Atenção', description: 'Adicione pelo menos uma mídia à playlist.', variant: 'destructive' })
       setLoading(false)
       return
     }
 
     if (items.some((item) => !item.duration || item.duration < 1 || !item.fileId)) {
-      toast({
-        title: 'Atenção',
-        description: 'Todas as mídias devem ter duração e arquivo válidos.',
-        variant: 'destructive',
-      })
+      toast({ title: 'Atenção', description: 'Todas as mídias devem ter duração e arquivo válidos.', variant: 'destructive' })
       setLoading(false)
       return
     }
@@ -92,47 +72,48 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       let currentPlaylistId = playlist?.id
 
       if (playlist) {
-        await pb.collection('playlists').update(playlist.id, { name })
+        const { error } = await supabase.from('playlists').update({ name }).eq('id', playlist.id)
+        if (error) throw error
       } else {
-        const data = await pb.collection('playlists').create({ name, user: user?.id })
+        const { data, error } = await supabase.from('playlists').insert({ name }).select().single()
+        if (error) throw error
         currentPlaylistId = data.id
       }
 
       if (currentPlaylistId) {
-        const oldItems = playlist
-          ? await pb
-              .collection('playlist_items')
-              .getFullList({ filter: `playlist='${currentPlaylistId}'` })
-          : []
+        const { data: oldItems } = await supabase
+          .from('playlist_items')
+          .select()
+          .eq('playlist_id', currentPlaylistId)
 
-        const newIds = new Set(items.map((i) => i.id))
+        const existingIds = new Set((oldItems ?? []).map((o) => o.id))
+        const newItemIds = new Set(items.map((i) => i.id))
 
         // Delete removed items
-        for (const old of oldItems) {
-          if (!newIds.has(old.id)) {
-            await pb.collection('playlist_items').delete(old.id)
+        for (const old of oldItems ?? []) {
+          if (!newItemIds.has(old.id)) {
+            await supabase.from('playlist_items').delete().eq('id', old.id)
           }
         }
 
-        // Create or Update items
+        // Create or update items
         for (let i = 0; i < items.length; i++) {
           const item = items[i]
-          const exists = oldItems.find((o) => o.id === item.id)
           const durationToSave = Math.max(1, Number(item.duration) || 10)
-          const sortOrder = i + 1 // Use i + 1 because PocketBase required number fields reject 0 as blank
+          const orderIndex = i + 1
 
-          if (exists) {
-            await pb.collection('playlist_items').update(item.id, {
-              playlist: currentPlaylistId,
-              file: item.fileId,
-              sort_order: sortOrder,
+          if (existingIds.has(item.id)) {
+            await supabase.from('playlist_items').update({
+              playlist_id: currentPlaylistId,
+              file_id: item.fileId,
+              order: orderIndex,
               duration: durationToSave,
-            })
+            }).eq('id', item.id)
           } else {
-            await pb.collection('playlist_items').create({
-              playlist: currentPlaylistId,
-              file: item.fileId,
-              sort_order: sortOrder,
+            await supabase.from('playlist_items').insert({
+              playlist_id: currentPlaylistId,
+              file_id: item.fileId,
+              order: orderIndex,
               duration: durationToSave,
             })
           }
@@ -143,12 +124,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
       onOpenChange(false)
       toast({ title: 'Sucesso', description: 'Playlist salva com sucesso!' })
     } catch (err: any) {
-      setFieldErrors(extractFieldErrors(err))
-      toast({
-        title: 'Erro',
-        description: getErrorMessage(err) || 'Não foi possível salvar a playlist',
-        variant: 'destructive',
-      })
+      toast({ title: 'Erro', description: err.message || 'Não foi possível salvar a playlist', variant: 'destructive' })
     } finally {
       setLoading(false)
     }
@@ -164,10 +140,7 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         order: prev.length,
       },
     ])
-    toast({
-      title: 'Arquivo adicionado',
-      description: `"${file.name}" foi adicionado à playlist.`,
-    })
+    toast({ title: 'Arquivo adicionado', description: `"${file.name}" foi adicionado à playlist.` })
   }
 
   const moveUp = (idx: number) => {
@@ -199,23 +172,10 @@ export function PlaylistEditor({ playlist, open, onOpenChange, onSaveSuccess }: 
         </DialogHeader>
 
         <div className="flex-1 flex flex-col gap-4 mt-2 overflow-hidden min-h-0 p-4 sm:p-0 pt-0">
-          {Object.keys(fieldErrors).length > 0 && !fieldErrors.name && (
-            <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm border border-red-200">
-              <p className="font-semibold mb-1">Erros de validação:</p>
-              <ul className="list-disc pl-4">
-                {Object.entries(fieldErrors).map(([field, msg]) => (
-                  <li key={field}>
-                    <strong>{field}:</strong> {String(msg)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
           <div className="space-y-2 shrink-0">
             <Label>Nome da Playlist</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
-            {fieldErrors.name && <p className="text-sm text-red-500 mt-1">{fieldErrors.name}</p>}
+            {nameError && <p className="text-sm text-red-500 mt-1">{nameError}</p>}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 flex-1 overflow-hidden min-h-0">
