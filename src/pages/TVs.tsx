@@ -24,7 +24,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useRealtime } from '@/hooks/use-realtime'
 import { useAuth } from '@/hooks/use-auth'
-import { extractFieldErrors } from '@/lib/pocketbase/errors'
+import { extractFieldErrors, getErrorMessage } from '@/lib/pocketbase/errors'
 import { useToast } from '@/hooks/use-toast'
 
 export default function TVs() {
@@ -38,6 +38,8 @@ export default function TVs() {
   const [newTvName, setNewTvName] = useState('')
   const [newTvCode, setNewTvCode] = useState('')
   const [fieldErrors, setFieldErrors] = useState<any>({})
+  const [generalError, setGeneralError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const [scheduleTv, setScheduleTv] = useState<any>(null)
 
   const fetchTVs = async () => {
@@ -80,10 +82,18 @@ export default function TVs() {
   const handleAddTV = async (e: React.FormEvent) => {
     e.preventDefault()
     setFieldErrors({})
+    setGeneralError('')
+    setSubmitting(true)
 
     try {
-      let code = newTvCode || newTvName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      if (!code) code = Math.random().toString(36).substring(7)
+      const normalized = newTvName
+        .normalize('NFD')
+        .replace(/\p{Mn}/gu, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+      const suffix = Math.random().toString(36).substring(2, 6)
+      const code = newTvCode || (normalized ? `${normalized}-${suffix}` : suffix)
 
       await pb.collection('tvs').create({
         name: newTvName,
@@ -96,7 +106,14 @@ export default function TVs() {
       setNewTvName('')
       setNewTvCode('')
     } catch (err: any) {
-      setFieldErrors(extractFieldErrors(err))
+      const fields = extractFieldErrors(err)
+      if (Object.keys(fields).length > 0) {
+        setFieldErrors(fields)
+      } else {
+        setGeneralError(getErrorMessage(err))
+      }
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -134,7 +151,16 @@ export default function TVs() {
         </Button>
       </div>
 
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <Dialog
+        open={isAddDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setGeneralError('')
+            setFieldErrors({})
+          }
+          setIsAddDialogOpen(open)
+        }}
+      >
         <DialogContent className="max-w-md max-sm:w-[100vw] max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:border-none p-0 sm:p-6">
           <form onSubmit={handleAddTV} className="flex flex-col h-full">
             <DialogHeader className="p-4 sm:p-0 pb-0">
@@ -142,6 +168,11 @@ export default function TVs() {
               <DialogDescription>Informe o nome e o código de acesso para a TV.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 p-4 sm:p-0 py-4 flex-1 overflow-y-auto content-start">
+              {generalError && (
+                <p className="text-sm text-red-500 rounded-md border border-red-200 bg-red-50 px-3 py-2">
+                  {generalError}
+                </p>
+              )}
               <div className="grid gap-2">
                 <Label htmlFor="name">Nome da TV *</Label>
                 <Input
@@ -175,7 +206,9 @@ export default function TVs() {
               <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">Salvar TV</Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Salvando...' : 'Salvar TV'}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

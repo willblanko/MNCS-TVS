@@ -42,9 +42,11 @@ export function TVRow({
 }: TVRowProps) {
   const [copied, setCopied] = useState(false)
 
-  const playerUrl = `${window.location.origin}/player/${tv.code}`
+  const hasCode = !!tv.code
+  const playerUrl = hasCode ? `${window.location.origin}/player/${tv.code}` : ''
 
   const copyUrl = () => {
+    if (!hasCode) return
     navigator.clipboard.writeText(playerUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -57,7 +59,9 @@ export function TVRow({
           <div className="flex justify-between items-start gap-2">
             <div className="min-w-0 flex-1">
               <div className="font-semibold text-base truncate">{tv.name}</div>
-              <div className="text-xs text-muted-foreground">Código: {tv.code}</div>
+              <div className="text-xs text-muted-foreground">
+                Código: {tv.code || <span className="text-yellow-600">sem código</span>}
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-medium text-muted-foreground">
@@ -110,7 +114,13 @@ export function TVRow({
             </Button>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" className="flex-1" onClick={copyUrl} title="Copiar Link">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={copyUrl}
+              title="Copiar Link"
+              disabled={!hasCode}
+            >
               {copied ? (
                 <>
                   <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" /> Copiado
@@ -121,11 +131,17 @@ export function TVRow({
                 </>
               )}
             </Button>
-            <Button variant="secondary" className="flex-1" asChild>
-              <a href={`/player/${tv.code}`} target="_blank" rel="noopener noreferrer">
+            {hasCode ? (
+              <Button variant="secondary" className="flex-1" asChild>
+                <a href={`/player/${tv.code}`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 mr-2" /> Abrir
+                </a>
+              </Button>
+            ) : (
+              <Button variant="secondary" className="flex-1" disabled>
                 <ExternalLink className="h-4 w-4 mr-2" /> Abrir
-              </a>
-            </Button>
+              </Button>
+            )}
           </div>
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -164,7 +180,9 @@ export function TVRow({
     <TableRow>
       <TableCell className="font-medium">
         <div className="text-base">{tv.name}</div>
-        <div className="text-xs text-muted-foreground">Código: {tv.code}</div>
+        <div className="text-xs text-muted-foreground">
+          Código: {tv.code || <span className="text-yellow-600">sem código</span>}
+        </div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
@@ -216,23 +234,36 @@ export function TVRow({
           >
             <CalendarClock className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={copyUrl} className="h-9" title="Copiar Link">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={copyUrl}
+            className="h-9"
+            title="Copiar Link"
+            disabled={!hasCode}
+          >
             {copied ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             ) : (
               <Copy className="h-4 w-4" />
             )}
           </Button>
-          <Button variant="secondary" size="sm" asChild className="h-9">
-            <a
-              href={`/player/${tv.code}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Abrir Player"
-            >
+          {hasCode ? (
+            <Button variant="secondary" size="sm" asChild className="h-9">
+              <a
+                href={`/player/${tv.code}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abrir Player"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </Button>
+          ) : (
+            <Button variant="secondary" size="sm" className="h-9" disabled title="Sem código">
               <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
+            </Button>
+          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
