@@ -14,12 +14,32 @@ export default function ResetPassword() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [done, setDone] = useState(false)
-  const [hasSession, setHasSession] = useState(false)
+  const [ready, setReady] = useState<'loading' | 'ok' | 'invalid'>('loading')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setHasSession(!!session)
+    // Listen for PASSWORD_RECOVERY event — fires when Supabase processes the URL hash token
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setReady('ok')
+      } else if (event === 'SIGNED_IN' && session) {
+        // Already signed in with a valid session (e.g. page refresh after recovery)
+        setReady('ok')
+      }
     })
+
+    // Also check if there's already a valid session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setReady('ok')
+      } else {
+        // Give onAuthStateChange time to fire before declaring invalid
+        setTimeout(() => {
+          setReady((prev) => (prev === 'loading' ? 'invalid' : prev))
+        }, 1500)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,6 +60,7 @@ export default function ResetPassword() {
       setError(err.message)
     } else {
       setDone(true)
+      await supabase.auth.signOut()
       setTimeout(() => navigate('/login'), 2500)
     }
   }
@@ -49,11 +70,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-sm p-6 sm:p-8 bg-card rounded-xl shadow-lg border">
         <div className="flex items-center justify-center mb-6">
           <img src={logoBlack} alt="MNCS Logo" className="h-24 w-auto object-contain dark:hidden" />
-          <img
-            src={logoWhite}
-            alt="MNCS Logo"
-            className="h-24 w-auto object-contain hidden dark:block"
-          />
+          <img src={logoWhite} alt="MNCS Logo" className="h-24 w-auto object-contain hidden dark:block" />
         </div>
 
         <h1 className="text-2xl font-bold text-center mb-2">Redefinir Senha</h1>
@@ -62,10 +79,19 @@ export default function ResetPassword() {
           <p className="text-center text-sm text-emerald-600 mt-4">
             Senha redefinida com sucesso! Redirecionando para o login…
           </p>
-        ) : !hasSession ? (
-          <p className="text-center text-sm text-red-500 mt-4">
-            Link inválido ou expirado. Solicite um novo link de redefinição de senha.
-          </p>
+        ) : ready === 'loading' ? (
+          <div className="flex justify-center mt-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : ready === 'invalid' ? (
+          <div className="mt-4 space-y-4">
+            <p className="text-center text-sm text-red-500">
+              Link inválido ou expirado. Solicite um novo link de redefinição de senha.
+            </p>
+            <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
+              Voltar para o Login
+            </Button>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             {error && (
